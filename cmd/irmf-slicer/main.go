@@ -8,7 +8,10 @@ import (
 	"flag"
 	"io/ioutil"
 	"log"
+	"path/filepath"
 	"strings"
+
+	"github.com/gmlewis/irmf-slicer/irmf"
 )
 
 var (
@@ -23,10 +26,14 @@ func main() {
 			log.Printf("Skipping non-IRMF file %q", arg)
 			continue
 		}
-		log.Printf("Processing IRMF shader %q...", arg)
+		log.Printf("Processing IRMF shader %q...", filepath.Base(arg))
 		buf, err := ioutil.ReadFile(arg)
 		check("ReadFile: %v", err)
-		log.Printf("buf=%s", buf)
+		irmf, err := irmf.New(string(buf))
+		check("New: %v", err)
+
+		zipName := filepath.Base(arg) + ".zip"
+		log.Printf("Slicing %v materials into file %q...", len(irmf.Materials), zipName)
 	}
 
 	log.Println("Done.")
