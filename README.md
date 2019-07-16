@@ -18,7 +18,8 @@ details.
 
 ## IRMF Shader Slicer Status
 
-This is the very start of the stand-alone IRMF shader slicer.
+This is the very start of the stand-alone IRMF shader slicer and is not
+yet ready for use.
 
 The technology stack used is Go and OpenGL.
 
