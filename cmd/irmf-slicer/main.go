@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	resolution = flag.Float64("res", 100.0, "Resolution in microns")
+	microns = flag.Float64("res", 100.0, "Resolution in microns")
 )
 
 func main() {
@@ -34,6 +34,8 @@ func main() {
 
 		zipName := filepath.Base(arg) + ".zip"
 		log.Printf("Slicing %v materials into file %q...", len(irmf.Materials), zipName)
+		err = irmf.Slice(zipName, *microns)
+		check("Slice: %v", err)
 	}
 
 	log.Println("Done.")
