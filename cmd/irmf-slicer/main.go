@@ -11,6 +11,10 @@ import (
 	"strings"
 )
 
+var (
+	resolution = flag.Float64("res", 100.0, "Resolution in microns")
+)
+
 func main() {
 	flag.Parse()
 
