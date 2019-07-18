@@ -30,6 +30,7 @@ type Slicer struct {
 	modelUniform int32
 	model        mgl32.Mat4
 	vao          uint32
+	uZUniform    int32
 }
 
 // Init initializes GLFW and OpenGL for rendering.
@@ -153,37 +154,51 @@ func (s *Slicer) prepareRender() error {
 
 	gl.UseProgram(s.program)
 
-	// width, height := s.window.GetFramebufferSize()
-	// projection := mgl32.Perspective(mgl32.DegToRad(45.0), float32(width)/float32(height), 0.1, 100.0)
-	// projectionUniform := gl.GetUniformLocation(s.program, gl.Str("projection\x00"))
-	// gl.UniformMatrix4fv(projectionUniform, 1, false, &projection[0])
-
-	// camera := mgl32.LookAtV(mgl32.Vec3{3, 3, 3}, mgl32.Vec3{0, 0, 0}, mgl32.Vec3{0, 1, 0})
 	left := float32(s.irmf.Min[0])
 	right := float32(s.irmf.Max[0])
 	bottom := float32(s.irmf.Min[1])
 	top := float32(s.irmf.Max[1])
-	near, far := float32(0.1), float32(100.0)
-	camera := mgl32.Ortho(left, right, bottom, top, near, far)
-	cameraUniform := gl.GetUniformLocation(s.program, gl.Str("camera\x00"))
-	gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
+	// near, far := float32(0.1), float32(100.0)
+	// camera := mgl32.Ortho(left, right, bottom, top, near, far)
+	// cameraUniform := gl.GetUniformLocation(s.program, gl.Str("camera\x00"))
+	// gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
 
-	s.model = mgl32.Ident4()
-	s.modelUniform = gl.GetUniformLocation(s.program, gl.Str("model\x00"))
-	gl.UniformMatrix4fv(s.modelUniform, 1, false, &s.model[0])
+	// s.model = mgl32.Ident4()
+	// s.modelUniform = gl.GetUniformLocation(s.program, gl.Str("model\x00"))
+	// gl.UniformMatrix4fv(s.modelUniform, 1, false, &s.model[0])
 
 	// Set up uniforms needed by shaders:
+	uLL := mgl32.Vec3{left, bottom, float32(s.irmf.Min[2])}
+	uLLUniform := gl.GetUniformLocation(s.program, gl.Str("u_ll\x00"))
+	gl.Uniform3fv(uLLUniform, 1, &uLL[0])
+	uUR := mgl32.Vec3{right, top, float32(s.irmf.Max[2])}
+	uURUniform := gl.GetUniformLocation(s.program, gl.Str("u_ur\x00"))
+	gl.Uniform3fv(uURUniform, 1, &uUR[0])
+	uZ := float32(0)
+	s.uZUniform = gl.GetUniformLocation(s.program, gl.Str("u_z\x00"))
+	gl.Uniform1f(s.uZUniform, uZ)
+	uNumMaterials := int32(len(s.irmf.Materials))
+	uNumMaterialsUniform := gl.GetUniformLocation(s.program, gl.Str("u_numMaterials\x00"))
+	gl.Uniform1i(uNumMaterialsUniform, uNumMaterials)
 
-	// textureUniform := gl.GetUniformLocation(s.program, gl.Str("tex\x00"))
-	// gl.Uniform1i(textureUniform, 0)
+	// uniform vec4 u_color1;
+	// uniform vec4 u_color2;
+	// uniform vec4 u_color3;
+	// uniform vec4 u_color4;
+	// uniform vec4 u_color5;
+	// uniform vec4 u_color6;
+	// uniform vec4 u_color7;
+	// uniform vec4 u_color8;
+	// uniform vec4 u_color9;
+	// uniform vec4 u_color10;
+	// uniform vec4 u_color11;
+	// uniform vec4 u_color12;
+	// uniform vec4 u_color13;
+	// uniform vec4 u_color14;
+	// uniform vec4 u_color15;
+	// uniform vec4 u_color16;
 
 	gl.BindFragDataLocation(s.program, 0, gl.Str("out_FragColor\x00"))
-
-	// // Load the texture
-	// texture, err := newTexture("square.png")
-	// if err != nil {
-	// 	log.Fatalln(err)
-	// }
 
 	// Configure the vertex data
 	gl.GenVertexArrays(1, &s.vao)
@@ -197,10 +212,6 @@ func (s *Slicer) prepareRender() error {
 	vertAttrib := uint32(gl.GetAttribLocation(s.program, gl.Str("vert\x00")))
 	gl.EnableVertexAttribArray(vertAttrib)
 	gl.VertexAttribPointer(vertAttrib, 3, gl.FLOAT, false, 5*4, gl.PtrOffset(0))
-
-	// texCoordAttrib := uint32(gl.GetAttribLocation(program, gl.Str("vertTexCoord\x00")))
-	// gl.EnableVertexAttribArray(texCoordAttrib)
-	// gl.VertexAttribPointer(texCoordAttrib, 2, gl.FLOAT, false, 5*4, gl.PtrOffset(3*4))
 
 	// Configure global settings
 	gl.Enable(gl.DEPTH_TEST)
@@ -269,13 +280,21 @@ func compileShader(source string, shaderType uint32) (uint32, error) {
 }
 
 const vertexShader = `#version 300 es
+// uniform mat4 camera;
+// uniform mat4 model;
+
+in vec3 vert;
+// in vec2 vertTexCoord;
+
+// out vec2 fragTexCoord;
 out vec4 v_xyz;
+
 void main() {
-  // gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
-	// v_xyz = modelMatrix * vec4( position, 1.0 );
-	v_xyz = gl_Position;
+  // fragTexCoord = vertTexCoord;
+  // gl_Position = projection * camera * model * vec4(vert, 1);
+  v_xyz = vec4(vert,1);
 }
-`
+` + "\x00"
 
 const fsHeader = `#version 300 es
 precision highp float;
@@ -306,14 +325,14 @@ out vec4 out_FragColor;
 
 const fsFooter = `
 void main() {
-  if (any(lessThanEqual(abs(v_xyz.xyz),u_ll))) {
-    // out_FragColor = vec4(1);  // DEBUG
-    return;
-  }
-  if (any(greaterThanEqual(abs(v_xyz.xyz),u_ur))) {
-    // out_FragColor = vec4(1);  // DEBUG
-    return;
-  }
+  // if (any(lessThanEqual(abs(v_xyz.xyz),u_ll))) {
+  //   // out_FragColor = vec4(1);  // DEBUG
+  //   return;
+  // }
+  // if (any(greaterThanEqual(abs(v_xyz.xyz),u_ur))) {
+  //   // out_FragColor = vec4(1);  // DEBUG
+  //   return;
+  // }
 
   if (u_numMaterials <= 4) {
     vec4 materials;
@@ -338,9 +357,10 @@ void main() {
 
   // } else if (u_numMaterials <= 16) {
 
-  }
+	}
+	out_FragColor = vec4(1,0,0, 1);  // DEBUG
 }
-`
+` + "\x00"
 
 var planeVertices = []float32{
 	//  X, Y, Z, U, V
