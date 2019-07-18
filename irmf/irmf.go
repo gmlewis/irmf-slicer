@@ -47,8 +47,8 @@ var (
 	whitespaceRE    = regexp.MustCompile(`[\s\n]+`)
 )
 
-// New parses the IRMF source file and returns a new IRMF struct.
-func New(src string) (*IRMF, error) {
+// newModel parses the IRMF source file and returns a new IRMF struct.
+func newModel(src string) (*IRMF, error) {
 	lines := strings.Split(src, "\n")
 	if lines[0] != "/*{" {
 		return nil, errors.New(`Unable to find leading "/*{"`)

@@ -16,10 +16,14 @@ import (
 
 var (
 	microns = flag.Float64("res", 100.0, "Resolution in microns")
+	view    = flag.Bool("view", true, "Render slicing to window")
 )
 
 func main() {
 	flag.Parse()
+
+	slicer := irmf.Init(*view, 640, 480, *microns)
+	defer slicer.Close()
 
 	for _, arg := range flag.Args() {
 		if !strings.HasSuffix(arg, ".irmf") {
@@ -29,12 +33,12 @@ func main() {
 		log.Printf("Processing IRMF shader %q...", filepath.Base(arg))
 		buf, err := ioutil.ReadFile(arg)
 		check("ReadFile: %v", err)
-		irmf, err := irmf.New(string(buf))
-		check("New: %v", err)
+		irmf, err := slicer.New(string(buf))
+		check("slicer.New: %v", err)
 
 		zipName := filepath.Base(arg) + ".zip"
 		log.Printf("Slicing %v materials into file %q...", len(irmf.Materials), zipName)
-		err = irmf.Slice(zipName, *microns)
+		err = slicer.Slice(zipName)
 		check("Slice: %v", err)
 	}
 

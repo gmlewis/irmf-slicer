@@ -3,44 +3,96 @@ package irmf
 import (
 	"archive/zip"
 	"fmt"
+	"image"
+	"image/png"
 	"log"
 	"os"
+	"runtime"
+	"strings"
 
-	"github.com/faiface/glhf"
-	"github.com/faiface/mainthread"
-	"github.com/go-gl/glfw/v3.1/glfw"
+	"github.com/go-gl/gl/v4.1-core/gl"
+	"github.com/go-gl/glfw/v3.2/glfw"
+	"github.com/go-gl/mathgl/mgl32"
 )
 
+func init() {
+	// GLFW event handling must run on the main OS thread
+	runtime.LockOSThread()
+}
+
+// Slicer represents a slicer context.
+type Slicer struct {
+	irmf    *IRMF
+	window  *glfw.Window
+	microns float64
+
+	program      uint32
+	modelUniform int32
+	model        mgl32.Mat4
+	vao          uint32
+}
+
+// Init initializes GLFW and OpenGL for rendering.
+func Init(view bool, width, height int, micronsResolution float64) *Slicer {
+	err := glfw.Init()
+	check("glfw.Init: %v", err)
+
+	glfw.WindowHint(glfw.Resizable, glfw.False)
+	glfw.WindowHint(glfw.ContextVersionMajor, 4)
+	glfw.WindowHint(glfw.ContextVersionMinor, 1)
+	glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
+	glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
+	window, err := glfw.CreateWindow(width, height, "IRMF Slicer", nil, nil)
+	check("CreateWindow(%v,%v): %v", width, height, err)
+	window.MakeContextCurrent()
+
+	err = gl.Init()
+	check("gl.Init: %v", err)
+
+	version := gl.GoStr(gl.GetString(gl.VERSION))
+	fmt.Println("OpenGL version", version)
+	return &Slicer{window: window, microns: micronsResolution}
+}
+
+// New prepares the slicer to slice a new shader model.
+func (s *Slicer) New(shaderSrc string) (*IRMF, error) {
+	var err error
+	s.irmf, err = newModel(shaderSrc)
+	return s.irmf, err
+}
+
+// Close closes the GLFW window and releases any Slicer resources.
+func (s *Slicer) Close() {
+	glfw.Terminate()
+}
+
 // Slice slices an IRMF shader into a ZIP containing many voxel slices
-func (i *IRMF) Slice(zipName string, microns float64) error {
+func (s *Slicer) Slice(zipName string) error {
 	zf, err := os.Create(zipName)
-	if err != nil {
-		return fmt.Errorf("Create: %v", err)
-	}
+	check("Create: %v", err)
 	defer func() {
-		if err := zf.Close(); err != nil {
-			log.Fatalf("Unable to close %v: %v", zipName, err)
-		}
+		err := zf.Close()
+		check("zip close: %v", err)
 	}()
 	w := zip.NewWriter(zf)
 
-	// Set up the global variables for the mainthread to run...
-	shaderSrc = i.Shader
-	mainthread.Run(run)
+	if err := s.prepareRender(); err != nil {
+		return fmt.Errorf("compile shader: %v", err)
+	}
 
-	// img, err := i.renderSlice(0.0, microns)
-	// if err != nil {
-	// 	return fmt.Errorf("renderSlice: %v", err)
-	// }
-	// n := 0
-	// filename := fmt.Sprintf("slices/out%04d.png", n)
-	// f, err := w.Create(filename)
-	// if err != nil {
-	// 	return fmt.Errorf("Unable to create ZIP file %q: %v", filename, err)
-	// }
-	// if err := png.Encode(f, img); err != nil {
-	// 	return fmt.Errorf("PNG encode: %v", err)
-	// }
+	img, err := s.renderSlice(0.0)
+	if err != nil {
+		return fmt.Errorf("renderSlice: %v", err)
+	}
+	n := 0
+	filename := fmt.Sprintf("slices/out%04d.png", n)
+	f, err := w.Create(filename)
+	if err != nil {
+		return fmt.Errorf("Unable to create ZIP file %q: %v", filename, err)
+	}
+	if err := png.Encode(f, img); err != nil {
+		return fmt.Errorf("PNG encode: %v", err)
+	}
 
 	if err := w.Close(); err != nil {
 		return fmt.Errorf("Unable to close ZIP: %v", err)
@@ -48,144 +100,149 @@ func (i *IRMF) Slice(zipName string, microns float64) error {
 	return nil
 }
 
-// Because of mainthread, we need to pass the values in as global
-// variables. Fix this.
-var shaderSrc string
+func (s *Slicer) renderSlice(z float64) (image.Image, error) {
+	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
-func run() {
-	var win *glfw.Window
+	// Update
+	// time := glfw.GetTime()
+	// elapsed := time - previousTime
+	// previousTime = time
+	// angle += elapsed
+	// model = mgl32.HomogRotate3D(float32(angle), mgl32.Vec3{0, 1, 0})
 
-	defer func() {
-		mainthread.Call(func() {
-			glfw.Terminate()
-		})
-	}()
+	// Render
+	gl.UseProgram(s.program)
+	gl.UniformMatrix4fv(s.modelUniform, 1, false, &s.model[0])
 
-	mainthread.Call(func() {
-		glfw.Init()
+	gl.BindVertexArray(s.vao)
 
-		glfw.WindowHint(glfw.ContextVersionMajor, 3)
-		glfw.WindowHint(glfw.ContextVersionMinor, 3)
-		glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
-		glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
-		glfw.WindowHint(glfw.Resizable, glfw.False)
+	// gl.ActiveTexture(gl.TEXTURE0)
+	// gl.BindTexture(gl.TEXTURE_2D, texture)
 
-		var err error
+	gl.DrawArrays(gl.TRIANGLES, 0, 2*3) // 6*2*3)
 
-		win, err = glfw.CreateWindow(512, 512, "IRMF Shader Slicer", nil, nil)
-		if err != nil {
-			log.Fatalf("glfw.CreateWindow: %v", err)
-		}
+	// Maintenance
+	s.window.SwapBuffers()
+	glfw.PollEvents()
 
-		win.MakeContextCurrent()
+	// Get the image from the buffer.
+	return nil, nil
+}
 
-		glhf.Init()
-	})
+func (s *Slicer) prepareRender() error {
+	// Configure the vertex and fragment shaders
+	var err error
+	if s.program, err = newProgram(vertexShader, fsHeader+s.irmf.Shader+fsFooter); err != nil {
+		return fmt.Errorf("newProgram: %v", err)
+	}
 
-	var (
-		// The vertex format consists of names and types of the attributes. The name is the
-		// name that the attribute is referenced by inside a shader.
-		vertexFormat = glhf.AttrFormat{
-			{Name: "position", Type: glhf.Vec2},
-			{Name: "texture", Type: glhf.Vec2},
-		}
+	gl.UseProgram(s.program)
 
-		shader  *glhf.Shader
-		texture *glhf.Texture
-		slice   *glhf.VertexSlice
-	)
+	width, height := s.window.GetFramebufferSize()
+	projection := mgl32.Perspective(mgl32.DegToRad(45.0), float32(width)/float32(height), 0.1, 100.0)
+	projectionUniform := gl.GetUniformLocation(s.program, gl.Str("projection\x00"))
+	gl.UniformMatrix4fv(projectionUniform, 1, false, &projection[0])
 
-	mainthread.Call(func() {
-		var err error
+	camera := mgl32.LookAtV(mgl32.Vec3{3, 3, 3}, mgl32.Vec3{0, 0, 0}, mgl32.Vec3{0, 1, 0})
+	cameraUniform := gl.GetUniformLocation(s.program, gl.Str("camera\x00"))
+	gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
 
-		uniforms := glhf.AttrFormat{
-			// From threejs:
-			{Name: "modelMatrix", Type: glhf.Mat4},      // = object.matrixWorld
-			{Name: "modelViewMatrix", Type: glhf.Mat4},  // = camera.matrixWorldInverse * object.matrixWorld
-			{Name: "projectionMatrix", Type: glhf.Mat4}, // = camera.projectionMatrix
-			{Name: "viewMatrix", Type: glhf.Mat4},       // = camera.matrixWorldInverse
-			{Name: "normalMatrix", Type: glhf.Mat3},     // = inverse transpose of modelViewMatrix
-			{Name: "cameraPosition", Type: glhf.Vec3},   // = camera position in world space
-			// end from threejs.
-			{Name: "u_z", Type: glhf.Float},
-			{Name: "u_ll", Type: glhf.Vec3},
-			{Name: "u_ur", Type: glhf.Vec3},
-			{Name: "u_z", Type: glhf.Float},
-			{Name: "u_numMaterials", Type: glhf.Int},
-			{Name: "u_color1", Type: glhf.Vec4},
-			{Name: "u_color2", Type: glhf.Vec4},
-			{Name: "u_color3", Type: glhf.Vec4},
-			{Name: "u_color4", Type: glhf.Vec4},
-			{Name: "u_color5", Type: glhf.Vec4},
-			{Name: "u_color6", Type: glhf.Vec4},
-			{Name: "u_color7", Type: glhf.Vec4},
-			{Name: "u_color8", Type: glhf.Vec4},
-			{Name: "u_color9", Type: glhf.Vec4},
-			{Name: "u_color10", Type: glhf.Vec4},
-			{Name: "u_color11", Type: glhf.Vec4},
-			{Name: "u_color12", Type: glhf.Vec4},
-			{Name: "u_color13", Type: glhf.Vec4},
-			{Name: "u_color14", Type: glhf.Vec4},
-			{Name: "u_color15", Type: glhf.Vec4},
-			{Name: "u_color16", Type: glhf.Vec4},
-		}
-		shader, err = glhf.NewShader(vertexFormat, uniforms, vertexShader, fsHeader+shaderSrc+fsFooter)
-		if err != nil {
-			log.Fatalf("unable to compile shaders: %v", err)
-		}
+	s.model = mgl32.Ident4()
+	s.modelUniform = gl.GetUniformLocation(s.program, gl.Str("model\x00"))
+	gl.UniformMatrix4fv(s.modelUniform, 1, false, &s.model[0])
 
-		// And finally, we make a vertex slice, which is basically a dynamically sized
-		// vertex array. The length of the slice is 6 and the capacity is the same.
-		//
-		// The slice inherits the vertex format of the supplied shader. Also, it should
-		// only be used with that shader.
-		slice = glhf.MakeVertexSlice(shader, 6, 6)
+	// textureUniform := gl.GetUniformLocation(s.program, gl.Str("tex\x00"))
+	// gl.Uniform1i(textureUniform, 0)
 
-		// Before we use a slice, we need to Begin it. The same holds for all objects in
-		// GLHF.
-		slice.Begin()
+	gl.BindFragDataLocation(s.program, 0, gl.Str("outputColor\x00"))
 
-		// We assign data to the vertex slice. The values are in the order as in the vertex
-		// format of the slice (shader). Each two floats correspond to an attribute of type
-		// glhf.Vec2.
-		slice.SetVertexData([]float32{
-			-1, -1, 0, 1,
-			+1, -1, 1, 1,
-			+1, +1, 1, 0,
-
-			-1, -1, 0, 1,
-			+1, +1, 1, 0,
-			-1, +1, 0, 0,
-		})
-
-		// When we're done with the slice, we End it.
-		slice.End()
-	})
-
-	// shouldQuit := false
-	// for !shouldQuit {
-	mainthread.Call(func() {
-		// if win.ShouldClose() {
-		// shouldQuit = true
-		// }
-
-		// Clear the window.
-		glhf.Clear(1, 1, 1, 1)
-
-		// Here we Begin/End all necessary objects and finally draw the vertex
-		// slice.
-		shader.Begin()
-		texture.Begin()
-		slice.Begin()
-		slice.Draw()
-		slice.End()
-		texture.End()
-		shader.End()
-
-		win.SwapBuffers()
-		glfw.PollEvents()
-	})
+	// // Load the texture
+	// texture, err := newTexture("square.png")
+	// if err != nil {
+	// 	log.Fatalln(err)
 	// }
+
+	// Configure the vertex data
+	gl.GenVertexArrays(1, &s.vao)
+	gl.BindVertexArray(s.vao)
+
+	var vbo uint32
+	gl.GenBuffers(1, &vbo)
+	gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
+	gl.BufferData(gl.ARRAY_BUFFER, len(planeVertices)*4, gl.Ptr(planeVertices), gl.STATIC_DRAW)
+
+	vertAttrib := uint32(gl.GetAttribLocation(s.program, gl.Str("vert\x00")))
+	gl.EnableVertexAttribArray(vertAttrib)
+	gl.VertexAttribPointer(vertAttrib, 3, gl.FLOAT, false, 5*4, gl.PtrOffset(0))
+
+	// texCoordAttrib := uint32(gl.GetAttribLocation(program, gl.Str("vertTexCoord\x00")))
+	// gl.EnableVertexAttribArray(texCoordAttrib)
+	// gl.VertexAttribPointer(texCoordAttrib, 2, gl.FLOAT, false, 5*4, gl.PtrOffset(3*4))
+
+	// Configure global settings
+	gl.Enable(gl.DEPTH_TEST)
+	gl.DepthFunc(gl.LESS)
+	gl.ClearColor(0.0, 0.0, 0.0, 1.0)
+
+	return nil
+}
+
+func newProgram(vertexShaderSource, fragmentShaderSource string) (uint32, error) {
+	vertexShader, err := compileShader(vertexShaderSource, gl.VERTEX_SHADER)
+	if err != nil {
+		return 0, err
+	}
+
+	fragmentShader, err := compileShader(fragmentShaderSource, gl.FRAGMENT_SHADER)
+	if err != nil {
+		return 0, err
+	}
+
+	program := gl.CreateProgram()
+
+	gl.AttachShader(program, vertexShader)
+	gl.AttachShader(program, fragmentShader)
+	gl.LinkProgram(program)
+
+	var status int32
+	gl.GetProgramiv(program, gl.LINK_STATUS, &status)
+	if status == gl.FALSE {
+		var logLength int32
+		gl.GetProgramiv(program, gl.INFO_LOG_LENGTH, &logLength)
+
+		log := strings.Repeat("\x00", int(logLength+1))
+		gl.GetProgramInfoLog(program, logLength, nil, gl.Str(log))
+
+		return 0, fmt.Errorf("failed to link program: %v", log)
+	}
+
+	gl.DeleteShader(vertexShader)
+	gl.DeleteShader(fragmentShader)
+
+	return program, nil
+}
+
+func compileShader(source string, shaderType uint32) (uint32, error) {
+	shader := gl.CreateShader(shaderType)
+
+	csources, free := gl.Strs(source)
+	gl.ShaderSource(shader, 1, csources, nil)
+	free()
+	gl.CompileShader(shader)
+
+	var status int32
+	gl.GetShaderiv(shader, gl.COMPILE_STATUS, &status)
+	if status == gl.FALSE {
+		var logLength int32
+		gl.GetShaderiv(shader, gl.INFO_LOG_LENGTH, &logLength)
+
+		log := strings.Repeat("\x00", int(logLength+1))
+		gl.GetShaderInfoLog(shader, logLength, nil, gl.Str(log))
+
+		return 0, fmt.Errorf("failed to compile %v: %v", source, log)
+	}
+
+	return shader, nil
 }
 
 const vertexShader = `#version 300 es
@@ -380,3 +437,20 @@ void main() {
   }
 }
 `
+
+var planeVertices = []float32{
+	//  X, Y, Z, U, V
+	-1.0, -1.0, 0.0, 1.0, 0.0,
+	1.0, -1.0, 0.0, 0.0, 0.0,
+	-1.0, 1.0, 0.0, 1.0, 1.0,
+	1.0, -1.0, 0.0, 0.0, 0.0,
+	1.0, 1.0, 0.0, 0.0, 1.0,
+	-1.0, 1.0, 0.0, 1.0, 1.0,
+}
+
+func check(fmtStr string, args ...interface{}) {
+	err := args[len(args)-1]
+	if err != nil {
+		log.Fatalf(fmtStr, args...)
+	}
+}
