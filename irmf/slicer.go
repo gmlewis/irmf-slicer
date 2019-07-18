@@ -120,7 +120,8 @@ func (s *Slicer) renderSlice(z float64) (image.Image, error) {
 
 	// Render
 	gl.UseProgram(s.program)
-	gl.UniformMatrix4fv(s.modelUniform, 1, false, &s.model[0])
+	// gl.UniformMatrix4fv(s.modelUniform, 1, false, &s.model[0])
+	gl.Uniform1f(s.uZUniform, float32(z))
 
 	gl.BindVertexArray(s.vao)
 
@@ -129,6 +130,7 @@ func (s *Slicer) renderSlice(z float64) (image.Image, error) {
 
 	gl.DrawArrays(gl.TRIANGLES, 0, 2*3) // 6*2*3)
 
+	gl.ReadBuffer(gl.BACK)
 	width, height := s.window.GetFramebufferSize()
 	rgba := &image.RGBA{
 		Pix:    make([]uint8, width*height*4),
@@ -137,11 +139,14 @@ func (s *Slicer) renderSlice(z float64) (image.Image, error) {
 	}
 	gl.ReadPixels(0, 0, int32(width), int32(height), gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(&rgba.Pix[0]))
 
+	if gl.GetError() != gl.NO_ERROR {
+		fmt.Println("GL ERROR Somewhere!")
+	}
+
 	// Maintenance
 	s.window.SwapBuffers()
 	glfw.PollEvents()
 
-	// Get the image from the buffer.
 	return rgba, nil
 }
 
@@ -216,7 +221,7 @@ func (s *Slicer) prepareRender() error {
 	// Configure global settings
 	gl.Enable(gl.DEPTH_TEST)
 	gl.DepthFunc(gl.LESS)
-	gl.ClearColor(0.0, 0.0, 0.0, 1.0)
+	gl.ClearColor(0.0, 0.0, 0.0, 0.0)
 
 	return nil
 }
@@ -284,6 +289,7 @@ const vertexShader = `#version 300 es
 // uniform mat4 model;
 
 in vec3 vert;
+uniform float u_z;
 // in vec2 vertTexCoord;
 
 // out vec2 fragTexCoord;
@@ -292,7 +298,7 @@ out vec4 v_xyz;
 void main() {
   // fragTexCoord = vertTexCoord;
   // gl_Position = projection * camera * model * vec4(vert, 1);
-  v_xyz = vec4(vert,1);
+  v_xyz = vec4(vert.xy,u_z,1);
 }
 ` + "\x00"
 
@@ -301,7 +307,6 @@ precision highp float;
 precision highp int;
 uniform vec3 u_ll;
 uniform vec3 u_ur;
-uniform float u_z;
 uniform int u_numMaterials;
 uniform vec4 u_color1;
 uniform vec4 u_color2;
@@ -358,7 +363,7 @@ void main() {
   // } else if (u_numMaterials <= 16) {
 
 	}
-	out_FragColor = vec4(1,0,0, 1);  // DEBUG
+	out_FragColor = vec4(vert, 1);  // DEBUG
 }
 ` + "\x00"
 
