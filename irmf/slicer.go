@@ -170,14 +170,11 @@ func (s *Slicer) prepareRender() error {
 	near, far := float32(0.1), float32(100.0)
 
 	// width, height := s.window.GetFramebufferSize()
-	width := right - left
-	height := top - bottom
-	aspectRatio := width / height
-	frustum := height
-	if frustum*aspectRatio < width {
-		frustum = width / aspectRatio
-	}
-	projection := mgl32.Ortho(-aspectRatio*frustum, aspectRatio*frustum, -frustum, frustum, near, far)
+	// width := right - left
+	// height := top - bottom
+	// div := float32(s.delta)
+	// s.window.SetSize(int(width/div+0.5), int(height/div+0.5))
+	projection := mgl32.Ortho(left, right, bottom, top, near, far)
 	// projection := mgl32.Perspective(mgl32.DegToRad(45.0), float32(width)/float32(height), 0.1, 10.0)
 	projectionUniform := gl.GetUniformLocation(s.program, gl.Str("projection\x00"))
 	gl.UniformMatrix4fv(projectionUniform, 1, false, &projection[0])
@@ -186,7 +183,7 @@ func (s *Slicer) prepareRender() error {
 	// cameraUniform := gl.GetUniformLocation(s.program, gl.Str("camera\x00"))
 	// gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
 
-	camera := mgl32.Ortho(-aspectRatio*frustum, aspectRatio*frustum, -frustum, frustum, near, far)
+	camera := mgl32.Ortho(left, right, bottom, top, near, far)
 	cameraUniform := gl.GetUniformLocation(s.program, gl.Str("camera\x00"))
 	gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
 
