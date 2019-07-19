@@ -29,11 +29,13 @@ type Slicer struct {
 	window        *glfw.Window
 	delta         float64 // millimeters (model units)
 
-	program      uint32
-	modelUniform int32
-	model        mgl32.Mat4
-	vao          uint32
-	uZUniform    int32
+	program uint32
+	model   mgl32.Mat4
+	vao     uint32
+
+	modelUniform        int32
+	uMaterialNumUniform int32
+	uZUniform           int32
 
 	texture uint32
 	// time         float64
@@ -99,26 +101,28 @@ func (s *Slicer) Slice(zipName string) error {
 		return fmt.Errorf("compile shader: %v", err)
 	}
 
-	var n int
-	for z := s.irmf.Min[2] + 0.5*s.delta; z <= s.irmf.Max[2]; z += s.delta {
-		img, err := s.renderSlice(z)
-		if err != nil {
-			return fmt.Errorf("renderSlice: %v", err)
+	for materialNum := 1; materialNum <= len(s.irmf.Materials); materialNum++ {
+		var n int
+		for z := s.irmf.Min[2] + 0.5*s.delta; z <= s.irmf.Max[2]; z += s.delta {
+			img, err := s.renderSlice(z, materialNum)
+			if err != nil {
+				return fmt.Errorf("renderSlice: %v", err)
+			}
+			filename := fmt.Sprintf("slices/out%04d.png", n)
+			fh := &zip.FileHeader{
+				Name:     filename,
+				Comment:  fmt.Sprintf("z=%0.2f", z),
+				Modified: time.Now(),
+			}
+			f, err := w.CreateHeader(fh)
+			if err != nil {
+				return fmt.Errorf("Unable to create ZIP file %q: %v", filename, err)
+			}
+			if err := png.Encode(f, img); err != nil {
+				return fmt.Errorf("PNG encode: %v", err)
+			}
+			n++
 		}
-		filename := fmt.Sprintf("slices/out%04d.png", n)
-		fh := &zip.FileHeader{
-			Name:     filename,
-			Comment:  fmt.Sprintf("z=%0.2f", z),
-			Modified: time.Now(),
-		}
-		f, err := w.CreateHeader(fh)
-		if err != nil {
-			return fmt.Errorf("Unable to create ZIP file %q: %v", filename, err)
-		}
-		if err := png.Encode(f, img); err != nil {
-			return fmt.Errorf("PNG encode: %v", err)
-		}
-		n++
 	}
 
 	if err := w.Close(); err != nil {
@@ -127,13 +131,14 @@ func (s *Slicer) Slice(zipName string) error {
 	return nil
 }
 
-func (s *Slicer) renderSlice(z float64) (image.Image, error) {
+func (s *Slicer) renderSlice(z float64, materialNum int) (image.Image, error) {
 	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
 	// Render
 	gl.UseProgram(s.program)
 	gl.UniformMatrix4fv(s.modelUniform, 1, false, &s.model[0])
 	gl.Uniform1f(s.uZUniform, float32(z))
+	gl.Uniform1i(s.uMaterialNumUniform, int32(materialNum))
 
 	gl.BindVertexArray(s.vao)
 
@@ -150,9 +155,10 @@ func (s *Slicer) renderSlice(z float64) (image.Image, error) {
 	}
 	gl.ReadPixels(0, 0, int32(width), int32(height), gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(&rgba.Pix[0]))
 
-	if gl.GetError() != gl.NO_ERROR {
-		fmt.Println("GL ERROR Somewhere!")
-	}
+	// The error appears to be related to unused variables, but it doesn't affect anything.
+	// if gl.GetError() != gl.NO_ERROR {
+	// 	fmt.Println("GL ERROR Somewhere!")
+	// }
 
 	// Maintenance
 	s.window.SwapBuffers()
@@ -178,20 +184,17 @@ func (s *Slicer) prepareRender() error {
 	if s.window == nil || resize {
 		s.createOrResizeWindow(int(aspectRatio*frustumSize), int(frustumSize))
 	}
-	log.Printf("MBB=(%v,%v)-(%v,%v), frustumSize=%v, aspectRatio=%v", left, bottom, right, top, frustumSize, aspectRatio)
+	log.Printf("MBB=(%v,%v,%v)-(%v,%v,%v)", left, bottom, right, top, s.irmf.Min[2], s.irmf.Max[2])
 
 	// Configure the vertex and fragment shaders
 	var err error
-	if s.program, err = newProgram(vertexShader, fsHeader+s.irmf.Shader+fsFooter); err != nil {
-		// if s.program, err = newProgram(vertexShader, fsHeader); err != nil {
+	if s.program, err = newProgram(vertexShader, fsHeader+s.irmf.Shader+genFooter(1)); err != nil {
 		return fmt.Errorf("newProgram: %v", err)
 	}
 
 	gl.UseProgram(s.program)
 
 	projection := mgl32.Ortho(left, right, bottom, top, near, far)
-	// projection := mgl32.Ortho(-aspectRatio*frustumSize, aspectRatio*frustumSize, -frustumSize, frustumSize, near, far)
-	// projection := mgl32.Perspective(mgl32.DegToRad(45.0), float32(width)/float32(height), 0.1, 10.0)
 	projectionUniform := gl.GetUniformLocation(s.program, gl.Str("projection\x00"))
 	gl.UniformMatrix4fv(projectionUniform, 1, false, &projection[0])
 
@@ -217,28 +220,10 @@ func (s *Slicer) prepareRender() error {
 	uZ := float32(0)
 	s.uZUniform = gl.GetUniformLocation(s.program, gl.Str("u_z\x00"))
 	gl.Uniform1f(s.uZUniform, uZ)
-	uNumMaterials := int32(len(s.irmf.Materials))
-	uNumMaterialsUniform := gl.GetUniformLocation(s.program, gl.Str("u_numMaterials\x00"))
-	gl.Uniform1i(uNumMaterialsUniform, uNumMaterials)
+	uMaterialNum := int32(1)
+	s.uMaterialNumUniform = gl.GetUniformLocation(s.program, gl.Str("u_materialNum\x00"))
+	gl.Uniform1i(s.uMaterialNumUniform, uMaterialNum)
 
-	// uniform vec4
-	// uniform vec4
-	// uniform vec4
-	// uniform vec4
-	// uniform vec4
-	// uniform vec4
-	// uniform vec4
-	// uniform vec4
-	// uniform vec4
-	// uniform vec4 ;
-	// uniform vec4 ;
-	// uniform vec4 ;
-	// uniform vec4 ;
-	// uniform vec4 ;
-	// uniform vec4 ;
-	// uniform vec4 ;
-
-	// gl.BindFragDataLocation(s.program, 0, gl.Str("outputColor\x00"))
 	gl.BindFragDataLocation(s.program, 0, gl.Str("outputColor\x00"))
 
 	// Load the texture
@@ -273,9 +258,6 @@ func (s *Slicer) prepareRender() error {
 	gl.Enable(gl.DEPTH_TEST)
 	gl.DepthFunc(gl.LESS)
 	gl.ClearColor(0.0, 0.0, 0.0, 0.0)
-
-	// s.angle = 0.0
-	// s.previousTime = glfw.GetTime()
 
 	return nil
 }
@@ -397,15 +379,36 @@ precision highp int;
 in vec3 fragVert;
 out vec4 outputColor;
 uniform float u_z;
+uniform int u_materialNum;
 `
 
-const fsFooter = `
+func genFooter(numMaterials int) string {
+	switch numMaterials {
+	case 1, 2, 3, 4:
+		return `
 void main() {
 	vec4 materials;
 	mainModel4(materials, vec3(fragVert.xy,u_z));
-	outputColor = vec4(materials.x);
+	switch(u_materialNum) {
+	case 1:
+		outputColor = vec4(materials.x);
+		break;
+	case 2:
+		outputColor = vec4(materials.y);
+		break;
+	case 3:
+		outputColor = vec4(materials.z);
+		break;
+	case 4:
+		outputColor = vec4(materials.w);
+		break;
+	}
 }
 ` + "\x00"
+	}
+	log.Fatalf("numMaterials=%v not yet supported", numMaterials)
+	return ""
+}
 
 var planeVertices = []float32{
 	//  X, Y, Z, U, V
