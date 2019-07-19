@@ -101,7 +101,7 @@ func (s *Slicer) Slice(zipName string) error {
 
 	var n int
 	for z := s.irmf.Min[2] + 0.5*s.delta; z <= s.irmf.Max[2]; z += s.delta {
-		img, err := s.renderSlice(0.0)
+		img, err := s.renderSlice(z)
 		if err != nil {
 			return fmt.Errorf("renderSlice: %v", err)
 		}
