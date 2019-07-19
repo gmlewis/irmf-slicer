@@ -24,9 +24,10 @@ func init() {
 
 // Slicer represents a slicer context.
 type Slicer struct {
-	irmf   *IRMF
-	window *glfw.Window
-	delta  float64 // millimeters (model units)
+	irmf          *IRMF
+	width, height int
+	window        *glfw.Window
+	delta         float64 // millimeters (model units)
 
 	program      uint32
 	modelUniform int32
@@ -40,27 +41,10 @@ type Slicer struct {
 	// previousTime float64
 }
 
-// Init initializes GLFW and OpenGL for rendering.
+// Init returns a new Slicer instance.
 func Init(view bool, width, height int, micronsResolution float64) *Slicer {
-	err := glfw.Init()
-	check("glfw.Init: %v", err)
-
-	glfw.WindowHint(glfw.Resizable, glfw.False)
-	glfw.WindowHint(glfw.ContextVersionMajor, 4)
-	glfw.WindowHint(glfw.ContextVersionMinor, 1)
-	glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
-	glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
-	window, err := glfw.CreateWindow(width, height, "IRMF Slicer", nil, nil)
-	check("CreateWindow(%v,%v): %v", width, height, err)
-	window.MakeContextCurrent()
-
-	err = gl.Init()
-	check("gl.Init: %v", err)
-
-	version := gl.GoStr(gl.GetString(gl.VERSION))
-	fmt.Println("OpenGL version", version)
 	// TODO: Support units other than millimeters.
-	return &Slicer{window: window, delta: micronsResolution / 1000.0}
+	return &Slicer{width: width, height: height, delta: micronsResolution / 1000.0}
 }
 
 // New prepares the slicer to slice a new shader model.
@@ -73,6 +57,32 @@ func (s *Slicer) New(shaderSrc string) (*IRMF, error) {
 // Close closes the GLFW window and releases any Slicer resources.
 func (s *Slicer) Close() {
 	glfw.Terminate()
+}
+
+func (s *Slicer) createOrResizeWindow(width, height int) {
+	if s.window != nil {
+		glfw.Terminate()
+	}
+	s.width = width
+	s.height = height
+
+	err := glfw.Init()
+	check("glfw.Init: %v", err)
+
+	glfw.WindowHint(glfw.Resizable, glfw.False)
+	glfw.WindowHint(glfw.ContextVersionMajor, 4)
+	glfw.WindowHint(glfw.ContextVersionMinor, 1)
+	glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
+	glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
+	s.window, err = glfw.CreateWindow(width, height, "IRMF Slicer", nil, nil)
+	check("CreateWindow(%v,%v): %v", width, height, err)
+	s.window.MakeContextCurrent()
+
+	err = gl.Init()
+	check("gl.Init: %v", err)
+
+	version := gl.GoStr(gl.GetString(gl.VERSION))
+	fmt.Println("OpenGL version", version)
 }
 
 // Slice slices an IRMF shader into a ZIP containing many voxel slices
@@ -152,6 +162,24 @@ func (s *Slicer) renderSlice(z float64) (image.Image, error) {
 }
 
 func (s *Slicer) prepareRender() error {
+	// Create or resize window if necessary.
+	left := float32(s.irmf.Min[0])
+	right := float32(s.irmf.Max[0])
+	bottom := float32(s.irmf.Min[1])
+	top := float32(s.irmf.Max[1])
+	near, far := float32(0.1), float32(100.0)
+	aspectRatio := (right - left) / (top - bottom)
+	frustumSize := float32(s.height)
+	resize := false
+	if aspectRatio*frustumSize < float32(s.width) {
+		frustumSize = float32(s.width) / aspectRatio
+		resize = true
+	}
+	if s.window == nil || resize {
+		s.createOrResizeWindow(int(aspectRatio*frustumSize), int(frustumSize))
+	}
+	log.Printf("MBB=(%v,%v)-(%v,%v), frustumSize=%v, aspectRatio=%v", left, bottom, right, top, frustumSize, aspectRatio)
+
 	// Configure the vertex and fragment shaders
 	var err error
 	if s.program, err = newProgram(vertexShader, fsHeader+s.irmf.Shader+fsFooter); err != nil {
@@ -161,19 +189,8 @@ func (s *Slicer) prepareRender() error {
 
 	gl.UseProgram(s.program)
 
-	left := float32(s.irmf.Min[0])
-	right := float32(s.irmf.Max[0])
-	bottom := float32(s.irmf.Min[1])
-	top := float32(s.irmf.Max[1])
-	near, far := float32(0.1), float32(100.0)
-
-	// width, height := s.window.GetFramebufferSize()
-	// width := right - left
-	// height := top - bottom
-	// div := float32(s.delta)
-	// s.window.SetSize(int(width/div+0.5), int(height/div+0.5))
-	log.Printf("left=%v, right=%v, bottom=%v, top=%v, near=%v, far=%v", left, right, bottom, top, near, far)
 	projection := mgl32.Ortho(left, right, bottom, top, near, far)
+	// projection := mgl32.Ortho(-aspectRatio*frustumSize, aspectRatio*frustumSize, -frustumSize, frustumSize, near, far)
 	// projection := mgl32.Perspective(mgl32.DegToRad(45.0), float32(width)/float32(height), 0.1, 10.0)
 	projectionUniform := gl.GetUniformLocation(s.program, gl.Str("projection\x00"))
 	gl.UniformMatrix4fv(projectionUniform, 1, false, &projection[0])

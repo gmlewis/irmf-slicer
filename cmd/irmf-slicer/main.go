@@ -17,12 +17,14 @@ import (
 var (
 	microns = flag.Float64("res", 100.0, "Resolution in microns")
 	view    = flag.Bool("view", true, "Render slicing to window")
+	width   = flag.Int("width", 640, "Initial window width")
+	height  = flag.Int("height", 480, "Initial window height")
 )
 
 func main() {
 	flag.Parse()
 
-	slicer := irmf.Init(*view, 640, 480, *microns)
+	slicer := irmf.Init(*view, *width, *height, *microns)
 	defer slicer.Close()
 
 	for _, arg := range flag.Args() {
