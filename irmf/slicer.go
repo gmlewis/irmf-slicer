@@ -362,10 +362,12 @@ in vec3 vert;
 in vec2 vertTexCoord;
 
 out vec2 fragTexCoord;
+out vec3 fragVert;
 
 void main() {
-    fragTexCoord = vertTexCoord;
-    gl_Position = projection * camera * model * vec4(vert, 1);
+	fragTexCoord = vertTexCoord;
+	gl_Position = projection * camera * model * vec4(vert, 1);
+	fragVert = vert;
 }
 
 // #version 300 es
@@ -392,11 +394,12 @@ precision highp int;
 
 uniform sampler2D tex;
 in vec2 fragTexCoord;
+in vec3 fragVert;
 out vec4 outputColor;
 
 void main() {
 		outputColor = texture(tex, fragTexCoord);
-		// outputColor = vec4(vert, 1);
+		// outputColor = vec4(fragVert, 1);
 }
 
 // #version 300 es
