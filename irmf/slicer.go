@@ -11,6 +11,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/go-gl/gl/v4.1-core/gl"
 	"github.com/go-gl/glfw/v3.2/glfw"
@@ -90,13 +91,18 @@ func (s *Slicer) Slice(zipName string) error {
 	}
 
 	var n int
-	for z := s.irmf.Min[2] + s.delta; z <= s.irmf.Max[2]; z += s.delta {
+	for z := s.irmf.Min[2] + 0.5*s.delta; z <= s.irmf.Max[2]; z += s.delta {
 		img, err := s.renderSlice(0.0)
 		if err != nil {
 			return fmt.Errorf("renderSlice: %v", err)
 		}
 		filename := fmt.Sprintf("slices/out%04d.png", n)
-		f, err := w.Create(filename)
+		fh := &zip.FileHeader{
+			Name:     filename,
+			Comment:  fmt.Sprintf("z=%0.2f", z),
+			Modified: time.Now(),
+		}
+		f, err := w.CreateHeader(fh)
 		if err != nil {
 			return fmt.Errorf("Unable to create ZIP file %q: %v", filename, err)
 		}
@@ -174,16 +180,17 @@ func (s *Slicer) prepareRender() error {
 	// height := top - bottom
 	// div := float32(s.delta)
 	// s.window.SetSize(int(width/div+0.5), int(height/div+0.5))
+	log.Printf("left=%v, right=%v, bottom=%v, top=%v, near=%v, far=%v", left, right, bottom, top, near, far)
 	projection := mgl32.Ortho(left, right, bottom, top, near, far)
 	// projection := mgl32.Perspective(mgl32.DegToRad(45.0), float32(width)/float32(height), 0.1, 10.0)
 	projectionUniform := gl.GetUniformLocation(s.program, gl.Str("projection\x00"))
 	gl.UniformMatrix4fv(projectionUniform, 1, false, &projection[0])
 
-	// camera := mgl32.LookAtV(mgl32.Vec3{0, 0, 3}, mgl32.Vec3{0, 0, 0}, mgl32.Vec3{0, 1, 0})
+	camera := mgl32.LookAtV(mgl32.Vec3{0, 0, 3}, mgl32.Vec3{0, 0, 0}, mgl32.Vec3{0, 1, 0})
 	// cameraUniform := gl.GetUniformLocation(s.program, gl.Str("camera\x00"))
 	// gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
 
-	camera := mgl32.Ortho(left, right, bottom, top, near, far)
+	// camera := mgl32.Ortho(left, right, bottom, top, near, far)
 	cameraUniform := gl.GetUniformLocation(s.program, gl.Str("camera\x00"))
 	gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
 
