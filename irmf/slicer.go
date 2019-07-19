@@ -4,7 +4,6 @@ import (
 	"archive/zip"
 	"fmt"
 	"image"
-	"image/draw"
 	"image/png"
 	"log"
 	"os"
@@ -36,8 +35,6 @@ type Slicer struct {
 	modelUniform        int32
 	uMaterialNumUniform int32
 	uZUniform           int32
-
-	texture uint32
 }
 
 // Init returns a new Slicer instance.
@@ -139,9 +136,6 @@ func (s *Slicer) renderSlice(z float64, materialNum int) (image.Image, error) {
 
 	gl.BindVertexArray(s.vao)
 
-	gl.ActiveTexture(gl.TEXTURE0)
-	gl.BindTexture(gl.TEXTURE_2D, s.texture)
-
 	gl.DrawArrays(gl.TRIANGLES, 0, 2*3) // 6*2*3)
 
 	width, height := s.window.GetFramebufferSize()
@@ -181,7 +175,7 @@ func (s *Slicer) prepareRender() error {
 	if s.window == nil || resize {
 		s.createOrResizeWindow(int(aspectRatio*frustumSize), int(frustumSize))
 	}
-	log.Printf("MBB=(%v,%v,%v)-(%v,%v,%v)", left, bottom, right, top, s.irmf.Min[2], s.irmf.Max[2])
+	log.Printf("MBB=(%v,%v,%v)-(%v,%v,%v)", left, bottom, s.irmf.Min[2], right, top, s.irmf.Max[2])
 
 	// Configure the vertex and fragment shaders
 	var err error
@@ -204,12 +198,6 @@ func (s *Slicer) prepareRender() error {
 	gl.UniformMatrix4fv(s.modelUniform, 1, false, &s.model[0])
 
 	// Set up uniforms needed by shaders:
-	uLL := mgl32.Vec3{left, bottom, float32(s.irmf.Min[2])}
-	uLLUniform := gl.GetUniformLocation(s.program, gl.Str("u_ll\x00"))
-	gl.Uniform3fv(uLLUniform, 1, &uLL[0])
-	uUR := mgl32.Vec3{right, top, float32(s.irmf.Max[2])}
-	uURUniform := gl.GetUniformLocation(s.program, gl.Str("u_ur\x00"))
-	gl.Uniform3fv(uURUniform, 1, &uUR[0])
 	uZ := float32(0)
 	s.uZUniform = gl.GetUniformLocation(s.program, gl.Str("u_z\x00"))
 	gl.Uniform1f(s.uZUniform, uZ)
@@ -218,12 +206,6 @@ func (s *Slicer) prepareRender() error {
 	gl.Uniform1i(s.uMaterialNumUniform, uMaterialNum)
 
 	gl.BindFragDataLocation(s.program, 0, gl.Str("outputColor\x00"))
-
-	// Load the texture
-	s.texture, err = newTexture("square.png")
-	if err != nil {
-		log.Fatalln(err)
-	}
 
 	// Configure the vertex data
 	gl.GenVertexArrays(1, &s.vao)
@@ -242,10 +224,6 @@ func (s *Slicer) prepareRender() error {
 	vertAttrib := uint32(gl.GetAttribLocation(s.program, gl.Str("vert\x00")))
 	gl.EnableVertexAttribArray(vertAttrib)
 	gl.VertexAttribPointer(vertAttrib, 3, gl.FLOAT, false, 5*4, gl.PtrOffset(0))
-
-	texCoordAttrib := uint32(gl.GetAttribLocation(s.program, gl.Str("vertTexCoord\x00")))
-	gl.EnableVertexAttribArray(texCoordAttrib)
-	gl.VertexAttribPointer(texCoordAttrib, 2, gl.FLOAT, false, 5*4, gl.PtrOffset(3*4))
 
 	// Configure global settings
 	gl.Enable(gl.DEPTH_TEST)
@@ -313,54 +291,13 @@ func compileShader(source string, shaderType uint32) (uint32, error) {
 	return shader, nil
 }
 
-func newTexture(file string) (uint32, error) {
-	imgFile, err := os.Open(file)
-	if err != nil {
-		return 0, fmt.Errorf("texture %q not found on disk: %v", file, err)
-	}
-	img, _, err := image.Decode(imgFile)
-	if err != nil {
-		return 0, err
-	}
-
-	rgba := image.NewRGBA(img.Bounds())
-	if rgba.Stride != rgba.Rect.Size().X*4 {
-		return 0, fmt.Errorf("unsupported stride")
-	}
-	draw.Draw(rgba, rgba.Bounds(), img, image.Point{0, 0}, draw.Src)
-
-	var texture uint32
-	gl.GenTextures(1, &texture)
-	gl.ActiveTexture(gl.TEXTURE0)
-	gl.BindTexture(gl.TEXTURE_2D, texture)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-	gl.TexImage2D(
-		gl.TEXTURE_2D,
-		0,
-		gl.RGBA,
-		int32(rgba.Rect.Size().X),
-		int32(rgba.Rect.Size().Y),
-		0,
-		gl.RGBA,
-		gl.UNSIGNED_BYTE,
-		gl.Ptr(rgba.Pix))
-
-	return texture, nil
-}
-
 const vertexShader = `#version 300 es
 uniform mat4 projection;
 uniform mat4 camera;
 uniform mat4 model;
 in vec3 vert;
-in vec2 vertTexCoord;
-out vec2 fragTexCoord;
 out vec3 fragVert;
 void main() {
-	fragTexCoord = vertTexCoord;
 	gl_Position = projection * camera * model * vec4(vert, 1);
 	fragVert = vert;
 }
