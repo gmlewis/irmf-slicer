@@ -7,6 +7,7 @@ import (
 	"image/draw"
 	"image/png"
 	"log"
+	"math"
 	"os"
 	"runtime"
 	"strings"
@@ -33,10 +34,10 @@ type Slicer struct {
 	vao          uint32
 	uZUniform    int32
 
-	texture      uint32
-	time         float64
-	angle        float64
-	previousTime float64
+	texture uint32
+	// time         float64
+	// angle        float64
+	// previousTime float64
 }
 
 // Init initializes GLFW and OpenGL for rendering.
@@ -115,11 +116,11 @@ func (s *Slicer) renderSlice(z float64) (image.Image, error) {
 	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
 	// Update
-	time := glfw.GetTime()
-	elapsed := time - s.previousTime
-	s.previousTime = time
-	s.angle += elapsed
-	s.model = mgl32.HomogRotate3D(float32(s.angle), mgl32.Vec3{0, 1, 0})
+	// time := glfw.GetTime()
+	// elapsed := time - s.previousTime
+	// s.previousTime = time
+	// s.angle += elapsed
+	s.model = mgl32.HomogRotate3D(float32(math.Pi), mgl32.Vec3{0, 1, 0})
 
 	// Render
 	gl.UseProgram(s.program)
@@ -180,7 +181,7 @@ func (s *Slicer) prepareRender() error {
 	projectionUniform := gl.GetUniformLocation(s.program, gl.Str("projection\x00"))
 	gl.UniformMatrix4fv(projectionUniform, 1, false, &projection[0])
 
-	camera := mgl32.LookAtV(mgl32.Vec3{3, 3, 3}, mgl32.Vec3{0, 0, 0}, mgl32.Vec3{0, 1, 0})
+	camera := mgl32.LookAtV(mgl32.Vec3{0, 0, 3}, mgl32.Vec3{0, 0, 0}, mgl32.Vec3{0, 1, 0})
 	cameraUniform := gl.GetUniformLocation(s.program, gl.Str("camera\x00"))
 	gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
 
@@ -250,8 +251,8 @@ func (s *Slicer) prepareRender() error {
 	gl.DepthFunc(gl.LESS)
 	gl.ClearColor(0.0, 0.0, 0.0, 0.0)
 
-	s.angle = 0.0
-	s.previousTime = glfw.GetTime()
+	// s.angle = 0.0
+	// s.previousTime = glfw.GetTime()
 
 	return nil
 }
