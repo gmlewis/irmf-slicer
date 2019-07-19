@@ -377,79 +377,33 @@ func newTexture(file string) (uint32, error) {
 }
 
 const vertexShader = `#version 300 es
-
 uniform mat4 projection;
 uniform mat4 camera;
 uniform mat4 model;
-
 in vec3 vert;
 in vec2 vertTexCoord;
-
 out vec2 fragTexCoord;
 out vec3 fragVert;
-
 void main() {
 	fragTexCoord = vertTexCoord;
 	gl_Position = projection * camera * model * vec4(vert, 1);
 	fragVert = vert;
 }
-
-// #version 300 es
-// // uniform mat4 camera;
-// // uniform mat4 model;
-
-// in vec3 vert;
-// uniform float u_z;
-// // in vec2 vertTexCoord;
-
-// // out vec2 fragTexCoord;
-// out vec4 v_xyz;
-
-// void main() {
-//   // fragTexCoord = vertTexCoord;
-//   // gl_Position = projection * camera * model * vec4(vert, 1);
-//   v_xyz = vec4(vert.xy,u_z,1);
-// }
 ` + "\x00"
 
 const fsHeader = `#version 300 es
 precision highp float;
 precision highp int;
-
-// uniform sampler2D tex;
-// in vec2 fragTexCoord;
 in vec3 fragVert;
 out vec4 outputColor;
-
-// uniform vec3 u_ll;
-// uniform vec3 u_ur;
-// uniform int u_numMaterials;
 uniform float u_z;
-// in vec4 v_xyz;
-// out vec4 outputColor;
 `
 
 const fsFooter = `
 void main() {
-  // if (any(lessThanEqual(abs(v_xyz.xyz),u_ll))) {
-  //   // outputColor = vec4(1);  // DEBUG
-  //   return;
-  // }
-  // if (any(greaterThanEqual(abs(v_xyz.xyz),u_ur))) {
-  //   // outputColor = vec4(1);  // DEBUG
-  //   return;
-	// }
-
-	vec3 v_xyz = vec3(fragVert.xy,u_z);
-
 	vec4 materials;
-	mainModel4(materials, v_xyz.xyz);
+	mainModel4(materials, vec3(fragVert.xy,u_z));
 	outputColor = vec4(materials.x);
-	// outputColor = v_xyz/5.0 + 0.5;  // DEBUG
-	// outputColor = vec4(vec3(d), 1.);  // DEBUG
-	// outputColor = vec4(vert, 1);  // DEBUG
-	// outputColor = vec4(fragVert.xy/10.0+0.5, 0, 1);
-	// outputColor = vec4(v_xyz,1);
 }
 ` + "\x00"
 
