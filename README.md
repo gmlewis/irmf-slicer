@@ -1,5 +1,7 @@
 # [IRMF Shader](https://github.com/gmlewis/irmf) Slicer
 
+![IRMF slicer demo](irmf-slicer-demo.gif)
+
 ## Summary
 
 IRMF is a file format used to describe [GLSL
