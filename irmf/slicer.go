@@ -7,7 +7,6 @@ import (
 	"image/draw"
 	"image/png"
 	"log"
-	"math"
 	"os"
 	"runtime"
 	"strings"
@@ -121,17 +120,10 @@ func (s *Slicer) Slice(zipName string) error {
 func (s *Slicer) renderSlice(z float64) (image.Image, error) {
 	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
-	// Update
-	// time := glfw.GetTime()
-	// elapsed := time - s.previousTime
-	// s.previousTime = time
-	// s.angle += elapsed
-	s.model = mgl32.HomogRotate3D(float32(math.Pi), mgl32.Vec3{0, 1, 0})
-
 	// Render
 	gl.UseProgram(s.program)
 	gl.UniformMatrix4fv(s.modelUniform, 1, false, &s.model[0])
-	// gl.Uniform1f(s.uZUniform, float32(z))
+	gl.Uniform1f(s.uZUniform, float32(z))
 
 	gl.BindVertexArray(s.vao)
 
@@ -162,8 +154,8 @@ func (s *Slicer) renderSlice(z float64) (image.Image, error) {
 func (s *Slicer) prepareRender() error {
 	// Configure the vertex and fragment shaders
 	var err error
-	// if s.program, err = newProgram(vertexShader, fsHeader+s.irmf.Shader+fsFooter); err != nil {
-	if s.program, err = newProgram(vertexShader, fsHeader); err != nil {
+	if s.program, err = newProgram(vertexShader, fsHeader+s.irmf.Shader+fsFooter); err != nil {
+		// if s.program, err = newProgram(vertexShader, fsHeader); err != nil {
 		return fmt.Errorf("newProgram: %v", err)
 	}
 
@@ -212,24 +204,24 @@ func (s *Slicer) prepareRender() error {
 	uNumMaterialsUniform := gl.GetUniformLocation(s.program, gl.Str("u_numMaterials\x00"))
 	gl.Uniform1i(uNumMaterialsUniform, uNumMaterials)
 
-	// uniform vec4 u_color1;
-	// uniform vec4 u_color2;
-	// uniform vec4 u_color3;
-	// uniform vec4 u_color4;
-	// uniform vec4 u_color5;
-	// uniform vec4 u_color6;
-	// uniform vec4 u_color7;
-	// uniform vec4 u_color8;
-	// uniform vec4 u_color9;
-	// uniform vec4 u_color10;
-	// uniform vec4 u_color11;
-	// uniform vec4 u_color12;
-	// uniform vec4 u_color13;
-	// uniform vec4 u_color14;
-	// uniform vec4 u_color15;
-	// uniform vec4 u_color16;
+	// uniform vec4
+	// uniform vec4
+	// uniform vec4
+	// uniform vec4
+	// uniform vec4
+	// uniform vec4
+	// uniform vec4
+	// uniform vec4
+	// uniform vec4
+	// uniform vec4 ;
+	// uniform vec4 ;
+	// uniform vec4 ;
+	// uniform vec4 ;
+	// uniform vec4 ;
+	// uniform vec4 ;
+	// uniform vec4 ;
 
-	// gl.BindFragDataLocation(s.program, 0, gl.Str("out_FragColor\x00"))
+	// gl.BindFragDataLocation(s.program, 0, gl.Str("outputColor\x00"))
 	gl.BindFragDataLocation(s.program, 0, gl.Str("outputColor\x00"))
 
 	// Load the texture
@@ -407,78 +399,40 @@ const fsHeader = `#version 300 es
 precision highp float;
 precision highp int;
 
-uniform sampler2D tex;
-in vec2 fragTexCoord;
+// uniform sampler2D tex;
+// in vec2 fragTexCoord;
 in vec3 fragVert;
 out vec4 outputColor;
 
-void main() {
-		outputColor = texture(tex, fragTexCoord);
-		// outputColor = vec4(fragVert, 1);
-}
-
-// #version 300 es
-// precision highp float;
-// precision highp int;
 // uniform vec3 u_ll;
 // uniform vec3 u_ur;
 // uniform int u_numMaterials;
-// uniform vec4 u_color1;
-// uniform vec4 u_color2;
-// uniform vec4 u_color3;
-// uniform vec4 u_color4;
-// uniform vec4 u_color5;
-// uniform vec4 u_color6;
-// uniform vec4 u_color7;
-// uniform vec4 u_color8;
-// uniform vec4 u_color9;
-// uniform vec4 u_color10;
-// uniform vec4 u_color11;
-// uniform vec4 u_color12;
-// uniform vec4 u_color13;
-// uniform vec4 u_color14;
-// uniform vec4 u_color15;
-// uniform vec4 u_color16;
+uniform float u_z;
 // in vec4 v_xyz;
-// out vec4 out_FragColor;
+// out vec4 outputColor;
 `
 
 const fsFooter = `
 void main() {
   // if (any(lessThanEqual(abs(v_xyz.xyz),u_ll))) {
-  //   // out_FragColor = vec4(1);  // DEBUG
+  //   // outputColor = vec4(1);  // DEBUG
   //   return;
   // }
   // if (any(greaterThanEqual(abs(v_xyz.xyz),u_ur))) {
-  //   // out_FragColor = vec4(1);  // DEBUG
+  //   // outputColor = vec4(1);  // DEBUG
   //   return;
-  // }
+	// }
 
-  if (u_numMaterials <= 4) {
-    vec4 materials;
-    mainModel4(materials, v_xyz.xyz);
-    switch(u_numMaterials) {
-    case 1:
-      out_FragColor = u_color1*materials.x;
-      break;
-    case 2:
-      out_FragColor = u_color1*materials.x + u_color2*materials.y;
-      break;
-    case 3:
-      out_FragColor = u_color1*materials.x + u_color2*materials.y + u_color3*materials.z;
-      break;
-    case 4:
-      out_FragColor = u_color1*materials.x + u_color2*materials.y + u_color3*materials.z + u_color4*materials.w;
-      break;
-    }
-    // out_FragColor = v_xyz/5.0 + 0.5;  // DEBUG
-    // out_FragColor = vec4(vec3(d), 1.);  // DEBUG
-  // } else if (u_numMaterials <= 9) {
+	vec3 v_xyz = vec3(fragVert.xy,u_z);
 
-  // } else if (u_numMaterials <= 16) {
-
-	}
-	out_FragColor = vec4(vert, 1);  // DEBUG
+	vec4 materials;
+	mainModel4(materials, v_xyz.xyz);
+	outputColor = vec4(materials.x);
+	// outputColor = v_xyz/5.0 + 0.5;  // DEBUG
+	// outputColor = vec4(vec3(d), 1.);  // DEBUG
+	// outputColor = vec4(vert, 1);  // DEBUG
+	// outputColor = vec4(fragVert.xy/10.0+0.5, 0, 1);
+	// outputColor = vec4(v_xyz,1);
 }
 ` + "\x00"
 
