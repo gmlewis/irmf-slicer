@@ -38,9 +38,6 @@ type Slicer struct {
 	uZUniform           int32
 
 	texture uint32
-	// time         float64
-	// angle        float64
-	// previousTime float64
 }
 
 // Init returns a new Slicer instance.
@@ -108,7 +105,7 @@ func (s *Slicer) Slice(zipName string) error {
 			if err != nil {
 				return fmt.Errorf("renderSlice: %v", err)
 			}
-			filename := fmt.Sprintf("slices/out%04d.png", n)
+			filename := fmt.Sprintf("%v/out%04d.png", s.irmf.Materials[materialNum-1], n)
 			fh := &zip.FileHeader{
 				Name:     filename,
 				Comment:  fmt.Sprintf("z=%0.2f", z),
@@ -199,10 +196,6 @@ func (s *Slicer) prepareRender() error {
 	gl.UniformMatrix4fv(projectionUniform, 1, false, &projection[0])
 
 	camera := mgl32.LookAtV(mgl32.Vec3{0, 0, 3}, mgl32.Vec3{0, 0, 0}, mgl32.Vec3{0, 1, 0})
-	// cameraUniform := gl.GetUniformLocation(s.program, gl.Str("camera\x00"))
-	// gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
-
-	// camera := mgl32.Ortho(left, right, bottom, top, near, far)
 	cameraUniform := gl.GetUniformLocation(s.program, gl.Str("camera\x00"))
 	gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
 
