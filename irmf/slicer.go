@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"fmt"
 	"image"
+	"image/draw"
 	"image/png"
 	"log"
 	"os"
@@ -31,6 +32,11 @@ type Slicer struct {
 	model        mgl32.Mat4
 	vao          uint32
 	uZUniform    int32
+
+	texture      uint32
+	time         float64
+	angle        float64
+	previousTime float64
 }
 
 // Init initializes GLFW and OpenGL for rendering.
@@ -112,25 +118,25 @@ func (s *Slicer) renderSlice(z float64) (image.Image, error) {
 	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
 	// Update
-	// time := glfw.GetTime()
-	// elapsed := time - previousTime
-	// previousTime = time
-	// angle += elapsed
-	// model = mgl32.HomogRotate3D(float32(angle), mgl32.Vec3{0, 1, 0})
+	time := glfw.GetTime()
+	elapsed := time - s.previousTime
+	s.previousTime = time
+	s.angle += elapsed
+	s.model = mgl32.HomogRotate3D(float32(s.angle), mgl32.Vec3{0, 1, 0})
 
 	// Render
 	gl.UseProgram(s.program)
-	// gl.UniformMatrix4fv(s.modelUniform, 1, false, &s.model[0])
-	gl.Uniform1f(s.uZUniform, float32(z))
+	gl.UniformMatrix4fv(s.modelUniform, 1, false, &s.model[0])
+	// gl.Uniform1f(s.uZUniform, float32(z))
 
 	gl.BindVertexArray(s.vao)
 
-	// gl.ActiveTexture(gl.TEXTURE0)
-	// gl.BindTexture(gl.TEXTURE_2D, texture)
+	gl.ActiveTexture(gl.TEXTURE0)
+	gl.BindTexture(gl.TEXTURE_2D, s.texture)
 
 	gl.DrawArrays(gl.TRIANGLES, 0, 2*3) // 6*2*3)
 
-	gl.ReadBuffer(gl.BACK)
+	// gl.ReadBuffer(gl.BACK)
 	width, height := s.window.GetFramebufferSize()
 	rgba := &image.RGBA{
 		Pix:    make([]uint8, width*height*4),
@@ -153,7 +159,8 @@ func (s *Slicer) renderSlice(z float64) (image.Image, error) {
 func (s *Slicer) prepareRender() error {
 	// Configure the vertex and fragment shaders
 	var err error
-	if s.program, err = newProgram(vertexShader, fsHeader+s.irmf.Shader+fsFooter); err != nil {
+	// if s.program, err = newProgram(vertexShader, fsHeader+s.irmf.Shader+fsFooter); err != nil {
+	if s.program, err = newProgram(vertexShader, fsHeader); err != nil {
 		return fmt.Errorf("newProgram: %v", err)
 	}
 
@@ -171,6 +178,19 @@ func (s *Slicer) prepareRender() error {
 	// s.model = mgl32.Ident4()
 	// s.modelUniform = gl.GetUniformLocation(s.program, gl.Str("model\x00"))
 	// gl.UniformMatrix4fv(s.modelUniform, 1, false, &s.model[0])
+
+	width, height := s.window.GetFramebufferSize()
+	projection := mgl32.Perspective(mgl32.DegToRad(45.0), float32(width)/float32(height), 0.1, 10.0)
+	projectionUniform := gl.GetUniformLocation(s.program, gl.Str("projection\x00"))
+	gl.UniformMatrix4fv(projectionUniform, 1, false, &projection[0])
+
+	camera := mgl32.LookAtV(mgl32.Vec3{3, 3, 3}, mgl32.Vec3{0, 0, 0}, mgl32.Vec3{0, 1, 0})
+	cameraUniform := gl.GetUniformLocation(s.program, gl.Str("camera\x00"))
+	gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
+
+	s.model = mgl32.Ident4()
+	s.modelUniform = gl.GetUniformLocation(s.program, gl.Str("model\x00"))
+	gl.UniformMatrix4fv(s.modelUniform, 1, false, &s.model[0])
 
 	// Set up uniforms needed by shaders:
 	uLL := mgl32.Vec3{left, bottom, float32(s.irmf.Min[2])}
@@ -203,7 +223,14 @@ func (s *Slicer) prepareRender() error {
 	// uniform vec4 u_color15;
 	// uniform vec4 u_color16;
 
-	gl.BindFragDataLocation(s.program, 0, gl.Str("out_FragColor\x00"))
+	// gl.BindFragDataLocation(s.program, 0, gl.Str("out_FragColor\x00"))
+	gl.BindFragDataLocation(s.program, 0, gl.Str("outputColor\x00"))
+
+	// Load the texture
+	s.texture, err = newTexture("square.png")
+	if err != nil {
+		log.Fatalln(err)
+	}
 
 	// Configure the vertex data
 	gl.GenVertexArrays(1, &s.vao)
@@ -213,15 +240,23 @@ func (s *Slicer) prepareRender() error {
 	gl.GenBuffers(1, &vbo)
 	gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
 	gl.BufferData(gl.ARRAY_BUFFER, len(planeVertices)*4, gl.Ptr(planeVertices), gl.STATIC_DRAW)
+	// gl.BufferData(gl.ARRAY_BUFFER, len(cubeVertices)*4, gl.Ptr(cubeVertices), gl.STATIC_DRAW)
 
 	vertAttrib := uint32(gl.GetAttribLocation(s.program, gl.Str("vert\x00")))
 	gl.EnableVertexAttribArray(vertAttrib)
 	gl.VertexAttribPointer(vertAttrib, 3, gl.FLOAT, false, 5*4, gl.PtrOffset(0))
 
+	texCoordAttrib := uint32(gl.GetAttribLocation(s.program, gl.Str("vertTexCoord\x00")))
+	gl.EnableVertexAttribArray(texCoordAttrib)
+	gl.VertexAttribPointer(texCoordAttrib, 2, gl.FLOAT, false, 5*4, gl.PtrOffset(3*4))
+
 	// Configure global settings
 	gl.Enable(gl.DEPTH_TEST)
 	gl.DepthFunc(gl.LESS)
 	gl.ClearColor(0.0, 0.0, 0.0, 0.0)
+
+	s.angle = 0.0
+	s.previousTime = glfw.GetTime()
 
 	return nil
 }
@@ -284,48 +319,114 @@ func compileShader(source string, shaderType uint32) (uint32, error) {
 	return shader, nil
 }
 
-const vertexShader = `#version 300 es
-// uniform mat4 camera;
-// uniform mat4 model;
+func newTexture(file string) (uint32, error) {
+	imgFile, err := os.Open(file)
+	if err != nil {
+		return 0, fmt.Errorf("texture %q not found on disk: %v", file, err)
+	}
+	img, _, err := image.Decode(imgFile)
+	if err != nil {
+		return 0, err
+	}
+
+	rgba := image.NewRGBA(img.Bounds())
+	if rgba.Stride != rgba.Rect.Size().X*4 {
+		return 0, fmt.Errorf("unsupported stride")
+	}
+	draw.Draw(rgba, rgba.Bounds(), img, image.Point{0, 0}, draw.Src)
+
+	var texture uint32
+	gl.GenTextures(1, &texture)
+	gl.ActiveTexture(gl.TEXTURE0)
+	gl.BindTexture(gl.TEXTURE_2D, texture)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+	gl.TexImage2D(
+		gl.TEXTURE_2D,
+		0,
+		gl.RGBA,
+		int32(rgba.Rect.Size().X),
+		int32(rgba.Rect.Size().Y),
+		0,
+		gl.RGBA,
+		gl.UNSIGNED_BYTE,
+		gl.Ptr(rgba.Pix))
+
+	return texture, nil
+}
+
+const vertexShader = `#version 330
+
+uniform mat4 projection;
+uniform mat4 camera;
+uniform mat4 model;
 
 in vec3 vert;
-uniform float u_z;
-// in vec2 vertTexCoord;
+in vec2 vertTexCoord;
 
-// out vec2 fragTexCoord;
-out vec4 v_xyz;
+out vec2 fragTexCoord;
 
 void main() {
-  // fragTexCoord = vertTexCoord;
-  // gl_Position = projection * camera * model * vec4(vert, 1);
-  v_xyz = vec4(vert.xy,u_z,1);
+    fragTexCoord = vertTexCoord;
+    gl_Position = projection * camera * model * vec4(vert, 1);
 }
+
+// #version 300 es
+// // uniform mat4 camera;
+// // uniform mat4 model;
+
+// in vec3 vert;
+// uniform float u_z;
+// // in vec2 vertTexCoord;
+
+// // out vec2 fragTexCoord;
+// out vec4 v_xyz;
+
+// void main() {
+//   // fragTexCoord = vertTexCoord;
+//   // gl_Position = projection * camera * model * vec4(vert, 1);
+//   v_xyz = vec4(vert.xy,u_z,1);
+// }
 ` + "\x00"
 
-const fsHeader = `#version 300 es
-precision highp float;
-precision highp int;
-uniform vec3 u_ll;
-uniform vec3 u_ur;
-uniform int u_numMaterials;
-uniform vec4 u_color1;
-uniform vec4 u_color2;
-uniform vec4 u_color3;
-uniform vec4 u_color4;
-uniform vec4 u_color5;
-uniform vec4 u_color6;
-uniform vec4 u_color7;
-uniform vec4 u_color8;
-uniform vec4 u_color9;
-uniform vec4 u_color10;
-uniform vec4 u_color11;
-uniform vec4 u_color12;
-uniform vec4 u_color13;
-uniform vec4 u_color14;
-uniform vec4 u_color15;
-uniform vec4 u_color16;
-in vec4 v_xyz;
-out vec4 out_FragColor;
+const fsHeader = `#version 330
+
+uniform sampler2D tex;
+
+in vec2 fragTexCoord;
+
+out vec4 outputColor;
+
+void main() {
+    outputColor = texture(tex, fragTexCoord);
+}
+
+// #version 300 es
+// precision highp float;
+// precision highp int;
+// uniform vec3 u_ll;
+// uniform vec3 u_ur;
+// uniform int u_numMaterials;
+// uniform vec4 u_color1;
+// uniform vec4 u_color2;
+// uniform vec4 u_color3;
+// uniform vec4 u_color4;
+// uniform vec4 u_color5;
+// uniform vec4 u_color6;
+// uniform vec4 u_color7;
+// uniform vec4 u_color8;
+// uniform vec4 u_color9;
+// uniform vec4 u_color10;
+// uniform vec4 u_color11;
+// uniform vec4 u_color12;
+// uniform vec4 u_color13;
+// uniform vec4 u_color14;
+// uniform vec4 u_color15;
+// uniform vec4 u_color16;
+// in vec4 v_xyz;
+// out vec4 out_FragColor;
 `
 
 const fsFooter = `
@@ -375,6 +476,57 @@ var planeVertices = []float32{
 	1.0, -1.0, 0.0, 0.0, 0.0,
 	1.0, 1.0, 0.0, 0.0, 1.0,
 	-1.0, 1.0, 0.0, 1.0, 1.0,
+}
+
+var cubeVertices = []float32{
+	//  X, Y, Z, U, V
+	// Bottom
+	-1.0, -1.0, -1.0, 0.0, 0.0,
+	1.0, -1.0, -1.0, 1.0, 0.0,
+	-1.0, -1.0, 1.0, 0.0, 1.0,
+	1.0, -1.0, -1.0, 1.0, 0.0,
+	1.0, -1.0, 1.0, 1.0, 1.0,
+	-1.0, -1.0, 1.0, 0.0, 1.0,
+
+	// Top
+	-1.0, 1.0, -1.0, 0.0, 0.0,
+	-1.0, 1.0, 1.0, 0.0, 1.0,
+	1.0, 1.0, -1.0, 1.0, 0.0,
+	1.0, 1.0, -1.0, 1.0, 0.0,
+	-1.0, 1.0, 1.0, 0.0, 1.0,
+	1.0, 1.0, 1.0, 1.0, 1.0,
+
+	// Front
+	-1.0, -1.0, 1.0, 1.0, 0.0,
+	1.0, -1.0, 1.0, 0.0, 0.0,
+	-1.0, 1.0, 1.0, 1.0, 1.0,
+	1.0, -1.0, 1.0, 0.0, 0.0,
+	1.0, 1.0, 1.0, 0.0, 1.0,
+	-1.0, 1.0, 1.0, 1.0, 1.0,
+
+	// Back
+	-1.0, -1.0, -1.0, 0.0, 0.0,
+	-1.0, 1.0, -1.0, 0.0, 1.0,
+	1.0, -1.0, -1.0, 1.0, 0.0,
+	1.0, -1.0, -1.0, 1.0, 0.0,
+	-1.0, 1.0, -1.0, 0.0, 1.0,
+	1.0, 1.0, -1.0, 1.0, 1.0,
+
+	// Left
+	-1.0, -1.0, 1.0, 0.0, 1.0,
+	-1.0, 1.0, -1.0, 1.0, 0.0,
+	-1.0, -1.0, -1.0, 0.0, 0.0,
+	-1.0, -1.0, 1.0, 0.0, 1.0,
+	-1.0, 1.0, 1.0, 1.0, 1.0,
+	-1.0, 1.0, -1.0, 1.0, 0.0,
+
+	// Right
+	1.0, -1.0, 1.0, 1.0, 1.0,
+	1.0, -1.0, -1.0, 1.0, 0.0,
+	1.0, 1.0, -1.0, 0.0, 0.0,
+	1.0, -1.0, 1.0, 1.0, 1.0,
+	1.0, 1.0, -1.0, 0.0, 0.0,
+	1.0, 1.0, 1.0, 0.0, 1.0,
 }
 
 func check(fmtStr string, args ...interface{}) {
