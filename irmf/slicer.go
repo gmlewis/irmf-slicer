@@ -167,21 +167,19 @@ func (s *Slicer) prepareRender() error {
 	right := float32(s.irmf.Max[0])
 	bottom := float32(s.irmf.Min[1])
 	top := float32(s.irmf.Max[1])
-	// near, far := float32(0.1), float32(100.0)
-	// camera := mgl32.Ortho(left, right, bottom, top, near, far)
-	// cameraUniform := gl.GetUniformLocation(s.program, gl.Str("camera\x00"))
-	// gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
+	near, far := float32(0.1), float32(100.0)
 
-	// s.model = mgl32.Ident4()
-	// s.modelUniform = gl.GetUniformLocation(s.program, gl.Str("model\x00"))
-	// gl.UniformMatrix4fv(s.modelUniform, 1, false, &s.model[0])
-
-	width, height := s.window.GetFramebufferSize()
-	projection := mgl32.Perspective(mgl32.DegToRad(45.0), float32(width)/float32(height), 0.1, 10.0)
+	// width, height := s.window.GetFramebufferSize()
+	projection := mgl32.Ortho(left, right, bottom, top, near, far)
+	// projection := mgl32.Perspective(mgl32.DegToRad(45.0), float32(width)/float32(height), 0.1, 10.0)
 	projectionUniform := gl.GetUniformLocation(s.program, gl.Str("projection\x00"))
 	gl.UniformMatrix4fv(projectionUniform, 1, false, &projection[0])
 
-	camera := mgl32.LookAtV(mgl32.Vec3{0, 0, 3}, mgl32.Vec3{0, 0, 0}, mgl32.Vec3{0, 1, 0})
+	// camera := mgl32.LookAtV(mgl32.Vec3{0, 0, 3}, mgl32.Vec3{0, 0, 0}, mgl32.Vec3{0, 1, 0})
+	// cameraUniform := gl.GetUniformLocation(s.program, gl.Str("camera\x00"))
+	// gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
+
+	camera := mgl32.Ortho(left, right, bottom, top, near, far)
 	cameraUniform := gl.GetUniformLocation(s.program, gl.Str("camera\x00"))
 	gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
 
@@ -232,6 +230,11 @@ func (s *Slicer) prepareRender() error {
 	// Configure the vertex data
 	gl.GenVertexArrays(1, &s.vao)
 	gl.BindVertexArray(s.vao)
+
+	planeVertices[0], planeVertices[10], planeVertices[25] = left, left, left
+	planeVertices[5], planeVertices[15], planeVertices[20] = right, right, right
+	planeVertices[1], planeVertices[6], planeVertices[16] = bottom, bottom, bottom
+	planeVertices[11], planeVertices[21], planeVertices[26] = top, top, top
 
 	var vbo uint32
 	gl.GenBuffers(1, &vbo)
@@ -470,12 +473,12 @@ void main() {
 
 var planeVertices = []float32{
 	//  X, Y, Z, U, V
-	-1.0, -1.0, 0.0, 1.0, 0.0,
-	1.0, -1.0, 0.0, 0.0, 0.0,
-	-1.0, 1.0, 0.0, 1.0, 1.0,
-	1.0, -1.0, 0.0, 0.0, 0.0,
-	1.0, 1.0, 0.0, 0.0, 1.0,
-	-1.0, 1.0, 0.0, 1.0, 1.0,
+	-1.0, -1.0, 0.0, 1.0, 0.0, // ll
+	1.0, -1.0, 0.0, 0.0, 0.0, // lr
+	-1.0, 1.0, 0.0, 1.0, 1.0, // ul
+	1.0, -1.0, 0.0, 0.0, 0.0, // lr
+	1.0, 1.0, 0.0, 0.0, 1.0, // ur
+	-1.0, 1.0, 0.0, 1.0, 1.0, // ul
 }
 
 func check(fmtStr string, args ...interface{}) {
