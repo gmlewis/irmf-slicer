@@ -103,9 +103,6 @@ func (s *Slicer) Slice(zipName string) error {
 			return fmt.Errorf("PNG encode: %v", err)
 		}
 		n++
-
-		s.window.SwapBuffers()
-		glfw.PollEvents()
 	}
 
 	if err := w.Close(); err != nil {
@@ -136,7 +133,7 @@ func (s *Slicer) renderSlice(z float64) (image.Image, error) {
 
 	gl.DrawArrays(gl.TRIANGLES, 0, 2*3) // 6*2*3)
 
-	// gl.ReadBuffer(gl.BACK)
+	// gl.ReadBuffer(gl.FRONT)
 	width, height := s.window.GetFramebufferSize()
 	rgba := &image.RGBA{
 		Pix:    make([]uint8, width*height*4),
@@ -240,7 +237,6 @@ func (s *Slicer) prepareRender() error {
 	gl.GenBuffers(1, &vbo)
 	gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
 	gl.BufferData(gl.ARRAY_BUFFER, len(planeVertices)*4, gl.Ptr(planeVertices), gl.STATIC_DRAW)
-	// gl.BufferData(gl.ARRAY_BUFFER, len(cubeVertices)*4, gl.Ptr(cubeVertices), gl.STATIC_DRAW)
 
 	vertAttrib := uint32(gl.GetAttribLocation(s.program, gl.Str("vert\x00")))
 	gl.EnableVertexAttribArray(vertAttrib)
@@ -251,6 +247,7 @@ func (s *Slicer) prepareRender() error {
 	gl.VertexAttribPointer(texCoordAttrib, 2, gl.FLOAT, false, 5*4, gl.PtrOffset(3*4))
 
 	// Configure global settings
+	// gl.DrawBuffer(gl.FRONT)
 	gl.Enable(gl.DEPTH_TEST)
 	gl.DepthFunc(gl.LESS)
 	gl.ClearColor(0.0, 0.0, 0.0, 0.0)
@@ -476,57 +473,6 @@ var planeVertices = []float32{
 	1.0, -1.0, 0.0, 0.0, 0.0,
 	1.0, 1.0, 0.0, 0.0, 1.0,
 	-1.0, 1.0, 0.0, 1.0, 1.0,
-}
-
-var cubeVertices = []float32{
-	//  X, Y, Z, U, V
-	// Bottom
-	-1.0, -1.0, -1.0, 0.0, 0.0,
-	1.0, -1.0, -1.0, 1.0, 0.0,
-	-1.0, -1.0, 1.0, 0.0, 1.0,
-	1.0, -1.0, -1.0, 1.0, 0.0,
-	1.0, -1.0, 1.0, 1.0, 1.0,
-	-1.0, -1.0, 1.0, 0.0, 1.0,
-
-	// Top
-	-1.0, 1.0, -1.0, 0.0, 0.0,
-	-1.0, 1.0, 1.0, 0.0, 1.0,
-	1.0, 1.0, -1.0, 1.0, 0.0,
-	1.0, 1.0, -1.0, 1.0, 0.0,
-	-1.0, 1.0, 1.0, 0.0, 1.0,
-	1.0, 1.0, 1.0, 1.0, 1.0,
-
-	// Front
-	-1.0, -1.0, 1.0, 1.0, 0.0,
-	1.0, -1.0, 1.0, 0.0, 0.0,
-	-1.0, 1.0, 1.0, 1.0, 1.0,
-	1.0, -1.0, 1.0, 0.0, 0.0,
-	1.0, 1.0, 1.0, 0.0, 1.0,
-	-1.0, 1.0, 1.0, 1.0, 1.0,
-
-	// Back
-	-1.0, -1.0, -1.0, 0.0, 0.0,
-	-1.0, 1.0, -1.0, 0.0, 1.0,
-	1.0, -1.0, -1.0, 1.0, 0.0,
-	1.0, -1.0, -1.0, 1.0, 0.0,
-	-1.0, 1.0, -1.0, 0.0, 1.0,
-	1.0, 1.0, -1.0, 1.0, 1.0,
-
-	// Left
-	-1.0, -1.0, 1.0, 0.0, 1.0,
-	-1.0, 1.0, -1.0, 1.0, 0.0,
-	-1.0, -1.0, -1.0, 0.0, 0.0,
-	-1.0, -1.0, 1.0, 0.0, 1.0,
-	-1.0, 1.0, 1.0, 1.0, 1.0,
-	-1.0, 1.0, -1.0, 1.0, 0.0,
-
-	// Right
-	1.0, -1.0, 1.0, 1.0, 1.0,
-	1.0, -1.0, -1.0, 1.0, 0.0,
-	1.0, 1.0, -1.0, 0.0, 0.0,
-	1.0, -1.0, 1.0, 1.0, 1.0,
-	1.0, 1.0, -1.0, 0.0, 0.0,
-	1.0, 1.0, 1.0, 0.0, 1.0,
 }
 
 func check(fmtStr string, args ...interface{}) {
