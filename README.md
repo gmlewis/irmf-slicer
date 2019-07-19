@@ -40,7 +40,7 @@ After you have a recent version of [Go](https://golang.org/) installed,
 run the following command in a terminal window:
 
 ```sh
-GO111MODULE=on go install github.com/gmlewis/irmf-slicer/cmd/irmf-slicer
+$ GO111MODULE=on go install github.com/gmlewis/irmf-slicer/cmd/irmf-slicer
 ```
 
 Then you might want to try it out on some of the [example IRMF
@@ -50,7 +50,7 @@ To slice one or more `.irmf` files, just list them on the command line,
 like this:
 
 ```sh
-irmf-slicer examples/*/*.irmf
+$ irmf-slicer examples/*/*.irmf
 ```
 
 ## How does it work?
@@ -58,6 +58,9 @@ irmf-slicer examples/*/*.irmf
 This slicer dices up your model (the IRMF shader) into slices (planes)
 that are perpendicular (normal) to the Z (up) axis. The slices are very
 thin and when stacked together, represent your solid model.
+
+The result is a ZIP file with all the slices in separate sub-folders
+named by the unique names of the materials.
 
 ## Why do I get a `Slice: compile shader` error?
 
