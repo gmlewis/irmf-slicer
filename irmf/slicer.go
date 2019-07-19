@@ -133,7 +133,6 @@ func (s *Slicer) renderSlice(z float64) (image.Image, error) {
 
 	gl.DrawArrays(gl.TRIANGLES, 0, 2*3) // 6*2*3)
 
-	// gl.ReadBuffer(gl.FRONT)
 	width, height := s.window.GetFramebufferSize()
 	rgba := &image.RGBA{
 		Pix:    make([]uint8, width*height*4),
@@ -247,7 +246,6 @@ func (s *Slicer) prepareRender() error {
 	gl.VertexAttribPointer(texCoordAttrib, 2, gl.FLOAT, false, 5*4, gl.PtrOffset(3*4))
 
 	// Configure global settings
-	// gl.DrawBuffer(gl.FRONT)
 	gl.Enable(gl.DEPTH_TEST)
 	gl.DepthFunc(gl.LESS)
 	gl.ClearColor(0.0, 0.0, 0.0, 0.0)
@@ -354,7 +352,7 @@ func newTexture(file string) (uint32, error) {
 	return texture, nil
 }
 
-const vertexShader = `#version 330
+const vertexShader = `#version 300 es
 
 uniform mat4 projection;
 uniform mat4 camera;
@@ -388,16 +386,17 @@ void main() {
 // }
 ` + "\x00"
 
-const fsHeader = `#version 330
+const fsHeader = `#version 300 es
+precision highp float;
+precision highp int;
 
 uniform sampler2D tex;
-
 in vec2 fragTexCoord;
-
 out vec4 outputColor;
 
 void main() {
-    outputColor = texture(tex, fragTexCoord);
+		outputColor = texture(tex, fragTexCoord);
+		// outputColor = vec4(vert, 1);
 }
 
 // #version 300 es
