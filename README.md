@@ -16,10 +16,7 @@ I believe that IRMF shaders will revolutionize the 3D-printing industry.
 See [github.com/gmlewis/irmf](https://github.com/gmlewis/irmf) for more
 details.
 
-## IRMF Shader Slicer Status
-
-This is the very start of the stand-alone IRMF shader slicer and is not
-yet ready for use.
+## About the IRMF Shader Slicer
 
 The technology stack used is Go and OpenGL.
 
@@ -35,11 +32,35 @@ this slicer will no longer be needed.
 
 # FAQ
 
+## How do I install it?
+
+After you have a recent version of [Go](https://golang.org/) installed,
+run the following command in a terminal window:
+
+```sh
+GO111MODULE=on go install github.com/gmlewis/irmf-slicer/cmd/irmf-slicer
+```
+
+Then you might want to try it out on some of the [example IRMF
+shaders](https://github.com/gmlewis/irmf#examples) located on GitHub.
+
+To slice one or more `.irmf` files, just list them on the command line,
+like this:
+
+```sh
+irmf-slicer examples/*/*.irmf
+```
+
 ## How does it work?
 
 This slicer dices up your model (the IRMF shader) into slices (planes)
 that are perpendicular (normal) to the Z (up) axis. The slices are very
 thin and when stacked together, represent your solid model.
+
+## Why do I get a `Slice: compile shader` error?
+
+Hmmm... Does the Mac not support GLSL ES 3.00?
+This needs more investigation.
 
 ----------------------------------------------------------------------
 
