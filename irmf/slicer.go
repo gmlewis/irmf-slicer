@@ -179,7 +179,7 @@ func (s *Slicer) prepareRender() error {
 
 	// Configure the vertex and fragment shaders
 	var err error
-	if s.program, err = newProgram(vertexShader, fsHeader+s.irmf.Shader+genFooter(1)); err != nil {
+	if s.program, err = newProgram(vertexShader, fsHeader+s.irmf.Shader+genFooter(len(s.irmf.Materials))); err != nil {
 		return fmt.Errorf("newProgram: %v", err)
 	}
 
@@ -312,34 +312,6 @@ uniform float u_z;
 uniform int u_materialNum;
 `
 
-func genFooter(numMaterials int) string {
-	switch numMaterials {
-	case 1, 2, 3, 4:
-		return `
-void main() {
-	vec4 materials;
-	mainModel4(materials, vec3(fragVert.xy,u_z));
-	switch(u_materialNum) {
-	case 1:
-		outputColor = vec4(materials.x);
-		break;
-	case 2:
-		outputColor = vec4(materials.y);
-		break;
-	case 3:
-		outputColor = vec4(materials.z);
-		break;
-	case 4:
-		outputColor = vec4(materials.w);
-		break;
-	}
-}
-` + "\x00"
-	}
-	log.Fatalf("numMaterials=%v not yet supported", numMaterials)
-	return ""
-}
-
 var planeVertices = []float32{
 	//  X, Y, Z, U, V
 	-1.0, -1.0, 0.0, 1.0, 0.0, // ll
@@ -356,3 +328,128 @@ func check(fmtStr string, args ...interface{}) {
 		log.Fatalf(fmtStr, args...)
 	}
 }
+
+func genFooter(numMaterials int) string {
+	switch numMaterials {
+	default:
+		return fsFooterFmt4 + "\x00"
+	case 5, 6, 7, 8, 9:
+		return fsFooterFmt9 + "\x00"
+	case 10, 11, 12, 13, 14, 15, 16:
+		return fsFooterFmt16 + "\x00"
+	}
+}
+
+const fsFooterFmt4 = `
+void main() {
+  vec4 m;
+  mainModel4(m, vec3(fragVert.xy,u_z));
+  switch(u_materialNum) {
+  case 1:
+    outputColor = vec4(m.x);
+    break;
+  case 2:
+    outputColor = vec4(m.y);
+    break;
+  case 3:
+    outputColor = vec4(m.z);
+    break;
+  case 4:
+    outputColor = vec4(m.w);
+    break;
+  }
+}
+`
+
+const fsFooterFmt9 = `
+void main() {
+  mat3 m;
+  mainModel9(m, vec3(fragVert.xy,u_z));
+  switch(u_materialNum) {
+  case 1:
+    outputColor = vec4(m[0][0]);
+    break;
+  case 2:
+    outputColor = vec4(m[0][1]);
+    break;
+  case 3:
+    outputColor = vec4(m[0][2]);
+    break;
+  case 4:
+    outputColor = vec4(m[1][0]);
+    break;
+  case 5:
+    outputColor = vec4(m[1][1]);
+    break;
+  case 6:
+    outputColor = vec4(m[1][2]);
+    break;
+  case 7:
+    outputColor = vec4(m[2][0]);
+    break;
+  case 8:
+    outputColor = vec4(m[2][1]);
+    break;
+  case 9:
+    outputColor = vec4(m[2][2]);
+    break;
+  }
+}
+`
+
+const fsFooterFmt16 = `
+void main() {
+  mat4 m;
+  mainModel16(m, vec3(fragVert.xy,u_z));
+  switch(u_materialNum) {
+  case 1:
+    outputColor = vec4(m[0][0]);
+    break;
+  case 2:
+    outputColor = vec4(m[0][1]);
+    break;
+  case 3:
+    outputColor = vec4(m[0][2]);
+    break;
+  case 4:
+    outputColor = vec4(m[0][3]);
+    break;
+  case 5:
+    outputColor = vec4(m[1][0]);
+    break;
+  case 6:
+    outputColor = vec4(m[1][1]);
+    break;
+  case 7:
+    outputColor = vec4(m[1][2]);
+    break;
+  case 8:
+    outputColor = vec4(m[1][3]);
+    break;
+  case 9:
+    outputColor = vec4(m[2][0]);
+    break;
+  case 10:
+    outputColor = vec4(m[2][1]);
+    break;
+  case 11:
+    outputColor = vec4(m[2][2]);
+    break;
+  case 12:
+    outputColor = vec4(m[2][3]);
+    break;
+  case 13:
+    outputColor = vec4(m[3][0]);
+    break;
+  case 14:
+    outputColor = vec4(m[3][1]);
+    break;
+  case 15:
+    outputColor = vec4(m[3][2]);
+    break;
+  case 16:
+    outputColor = vec4(m[3][3]);
+    break;
+  }
+}
+`
