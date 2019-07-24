@@ -35,7 +35,7 @@ func main() {
 		log.Printf("Processing IRMF shader %q...", filepath.Base(arg))
 		buf, err := ioutil.ReadFile(arg)
 		check("ReadFile: %v", err)
-		irmf, err := slicer.New(string(buf))
+		irmf, err := slicer.New(buf)
 		check("slicer.New: %v", err)
 
 		zipName := filepath.Base(arg) + ".zip"

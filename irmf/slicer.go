@@ -44,7 +44,7 @@ func Init(view bool, width, height int, micronsResolution float64) *Slicer {
 }
 
 // New prepares the slicer to slice a new shader model.
-func (s *Slicer) New(shaderSrc string) (*IRMF, error) {
+func (s *Slicer) New(shaderSrc []byte) (*IRMF, error) {
 	var err error
 	s.irmf, err = newModel(shaderSrc)
 	return s.irmf, err

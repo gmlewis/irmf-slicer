@@ -2,9 +2,13 @@
 package irmf
 
 import (
+	"bytes"
+	"compress/gzip"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"regexp"
 	"strings"
 )
@@ -14,6 +18,7 @@ type IRMF struct {
 	Author    string          `json:"author"`
 	Copyright string          `json:"copyright"`
 	Date      string          `json:"date"`
+	Encoding  *string         `json:"encoding,omitempty"`
 	IRMF      string          `json:"irmf"`
 	Materials []string        `json:"materials"`
 	Max       []float64       `json:"max"`
@@ -48,23 +53,55 @@ var (
 )
 
 // newModel parses the IRMF source file and returns a new IRMF struct.
-func newModel(src string) (*IRMF, error) {
-	lines := strings.Split(src, "\n")
-	if lines[0] != "/*{" {
+func newModel(src []byte) (*IRMF, error) {
+	if bytes.Index(src, []byte("/*{")) != 0 {
 		return nil, errors.New(`Unable to find leading "/*{"`)
 	}
-	endJSON := strings.Index(src, "\n}*/\n")
+	endJSON := bytes.Index(src, []byte("\n}*/\n"))
 	if endJSON < 0 {
 		return nil, errors.New(`Unable to find trailing "}*/"`)
 	}
 
-	jsonBlobStr := src[2 : endJSON+2]
+	jsonBlobStr := string(src[2 : endJSON+2])
 	jsonBlob, err := parseJSON(jsonBlobStr)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse JSON blob: %v", err)
 	}
 
-	jsonBlob.Shader = src[endJSON+5:]
+	shaderSrcBuf := src[endJSON+5:]
+	unzip := func(data []byte) error {
+		zr, err := gzip.NewReader(bytes.NewReader(data))
+		if err != nil {
+			return err
+		}
+		buf := &bytes.Buffer{}
+		if _, err := io.Copy(buf, zr); err != nil {
+			return err
+		}
+		if err := zr.Close(); err != nil {
+			return err
+		}
+		jsonBlob.Shader = buf.String()
+		return nil
+	}
+
+	if jsonBlob.Encoding != nil && *jsonBlob.Encoding == "gzip+base64" {
+		data, err := base64.RawStdEncoding.DecodeString(string(shaderSrcBuf))
+		if err != nil {
+			return nil, fmt.Errorf("uudecode error: %v", err)
+		}
+		if err := unzip(data); err != nil {
+			return nil, fmt.Errorf("unzip: %v", err)
+		}
+		jsonBlob.Encoding = nil
+	} else if jsonBlob.Encoding != nil && *jsonBlob.Encoding == "gzip" {
+		if err := unzip(shaderSrcBuf); err != nil {
+			return nil, fmt.Errorf("unzip: %v", err)
+		}
+		jsonBlob.Encoding = nil
+	} else {
+		jsonBlob.Shader = string(shaderSrcBuf)
+	}
 
 	if lineNum, err := jsonBlob.validate(jsonBlobStr, jsonBlob.Shader); err != nil {
 		return nil, fmt.Errorf("invalid JSON blob on line %v: %v", lineNum, err)
@@ -129,6 +166,10 @@ func (i *IRMF) validate(jsonBlobStr, shaderSrc string) (int, error) {
 
 	if len(i.Materials) > 9 && len(i.Materials) <= 16 && strings.Index(shaderSrc, "mainModel16") < 0 {
 		return findKeyLine(jsonBlobStr, "materials"), fmt.Errorf("Found %v materials, but missing 'mainModel16' function", len(i.Materials))
+	}
+
+	if i.Encoding != nil && *i.Encoding != "" && *i.Encoding != "gzip" && *i.Encoding != "gzip+base64" {
+		return findKeyLine(jsonBlobStr, "encoding"), errors.New("Unsupported encoding. Possible values are 'gzip' or 'gzip+base64'")
 	}
 
 	return 0, nil
