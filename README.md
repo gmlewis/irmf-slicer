@@ -1,6 +1,6 @@
 # [IRMF Shader](https://github.com/gmlewis/irmf) Slicer
 
-[![Test Status](https://github.com/gmlewis/irmf-slicer/workflows/tests/badge.svg)](https://github.com/gmlewis/irmf-slicer/actions?query=workflow%3AGo)
+[![Test Status](https://github.com/gmlewis/irmf-slicer/workflows/Go/badge.svg)](https://github.com/gmlewis/irmf-slicer/actions?query=workflow%3AGo)
 
 ![IRMF slicer demo](irmf-slicer-demo.gif)
 
