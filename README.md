@@ -42,8 +42,15 @@ After you have a recent version of [Go](https://golang.org/) installed,
 run the following command in a terminal window:
 
 ```sh
+$ go install github.com/gmlewis/irmf-slicer/cmd/irmf-slicer
+```
+
+(Prior to Go 1.13, you would use:
+
+```sh
 $ GO111MODULE=on go install github.com/gmlewis/irmf-slicer/cmd/irmf-slicer
 ```
+)
 
 Then you might want to try it out on some of the [example IRMF
 shaders](https://github.com/gmlewis/irmf#examples) located on GitHub.
