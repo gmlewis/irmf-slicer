@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-gl/gl/v4.1-core/gl"
-	"github.com/go-gl/glfw/v3.2/glfw"
+	"github.com/go-gl/gl/v4.6-core/gl"
+	"github.com/go-gl/glfw/v3.3/glfw"
 	"github.com/go-gl/mathgl/mgl32"
 )
 
@@ -70,6 +70,12 @@ func (s *Slicer) createOrResizeWindow(width, height int) {
 	glfw.WindowHint(glfw.ContextVersionMinor, 1)
 	glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
 	glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
+	// Ideally, this progam should use a headless display.
+	// Uncommenting the following line fails on Linux Mint 19 Cinnamon,
+	// Kernel 4.15.0-76-generic, OpenGL version 4.1.0 NVIDIA 390.116
+	// with the error:
+	// CreateWindow(640,640): VersionUnavailable: OSMesa: Forward-compatible contexts not supported
+	// glfw.WindowHint(glfw.ContextCreationAPI, glfw.OSMesaContextAPI) // headless
 	s.window, err = glfw.CreateWindow(width, height, "IRMF Slicer", nil, nil)
 	check("CreateWindow(%v,%v): %v", width, height, err)
 	s.window.MakeContextCurrent()
