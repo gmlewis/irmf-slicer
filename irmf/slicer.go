@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-gl/gl/v4.1-core/gl"
+	"github.com/go-gl/gl/v4.6-core/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
 	"github.com/go-gl/mathgl/mgl32"
 )
@@ -27,6 +27,7 @@ type Slicer struct {
 	width, height int
 	window        *glfw.Window
 	delta         float64 // millimeters (model units)
+	view          bool
 
 	program uint32
 	model   mgl32.Mat4
@@ -40,7 +41,7 @@ type Slicer struct {
 // Init returns a new Slicer instance.
 func Init(view bool, width, height int, micronsResolution float64) *Slicer {
 	// TODO: Support units other than millimeters.
-	return &Slicer{width: width, height: height, delta: micronsResolution / 1000.0}
+	return &Slicer{width: width, height: height, delta: micronsResolution / 1000.0, view: view}
 }
 
 // New prepares the slicer to slice a new shader model.
@@ -69,13 +70,9 @@ func (s *Slicer) createOrResizeWindow(width, height int) {
 	glfw.WindowHint(glfw.ContextVersionMajor, 4)
 	glfw.WindowHint(glfw.ContextVersionMinor, 1)
 	glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
-	glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
-	// Ideally, this progam should use a headless display.
-	// Uncommenting the following line fails on Linux Mint 19 Cinnamon,
-	// Kernel 4.15.0-76-generic, OpenGL version 4.1.0 NVIDIA 390.116
-	// with the error:
-	// CreateWindow(640,640): VersionUnavailable: OSMesa: Forward-compatible contexts not supported
-	// glfw.WindowHint(glfw.ContextCreationAPI, glfw.OSMesaContextAPI) // headless
+	if !s.view {
+		glfw.WindowHint(glfw.Visible, glfw.False)
+	}
 	s.window, err = glfw.CreateWindow(width, height, "IRMF Slicer", nil, nil)
 	check("CreateWindow(%v,%v): %v", width, height, err)
 	s.window.MakeContextCurrent()
@@ -108,7 +105,8 @@ func (s *Slicer) Slice(zipName string) error {
 			if err != nil {
 				return fmt.Errorf("renderSlice: %v", err)
 			}
-			filename := fmt.Sprintf("%v/out%04d.png", s.irmf.Materials[materialNum-1], n)
+			materialName := strings.ReplaceAll(s.irmf.Materials[materialNum-1], " ", "-")
+			filename := fmt.Sprintf("mat%02d-%v/out%04d.png", materialNum, materialName, n)
 			fh := &zip.FileHeader{
 				Name:     filename,
 				Comment:  fmt.Sprintf("z=%0.2f", z),

@@ -16,7 +16,7 @@ import (
 
 var (
 	microns = flag.Float64("res", 42.0, "Resolution in microns")
-	view    = flag.Bool("view", true, "Render slicing to window")
+	view    = flag.Bool("view", false, "Render slicing to window")
 	width   = flag.Int("width", 640, "Initial window width")
 	height  = flag.Int("height", 480, "Initial window height")
 )
