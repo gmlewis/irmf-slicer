@@ -21,19 +21,21 @@ type Slicer interface {
 	MaterialName(materialNum int) string // 1-based
 	MBB() (min, max [3]float64)          // in millimeters
 
-	PrepareRenderPlusZ() error
+	PrepareRenderZ() error
 	RenderZSlices(materialNum int, sp irmf.SliceProcessor, order irmf.Order) error
 }
 
 // Slice slices an IRMF shader into a ZIP containing many voxel slices.
-func Slice(zipName string, slicer Slicer) error {
+func Slice(zipName string, slicer Slicer) (newErr error) {
 	zf, err := os.Create(zipName)
 	if err != nil {
 		return fmt.Errorf("Create: %v", err)
 	}
 	defer func() {
-		if err := zf.Close(); err != nil {
-			log.Fatalf("Close: %v", err)
+		if newErr == nil {
+			if err := zf.Close(); err != nil {
+				newErr = fmt.Errorf("Close: %v", err)
+			}
 		}
 	}()
 	w := zip.NewWriter(zf)
@@ -41,8 +43,8 @@ func Slice(zipName string, slicer Slicer) error {
 	min, max := slicer.MBB()
 	log.Printf("MBB=(%v,%v,%v)-(%v,%v,%v)", min[0], min[1], min[2], max[0], max[1], max[2])
 
-	if err := slicer.PrepareRenderPlusZ(); err != nil {
-		return fmt.Errorf("compile shader: %v", err)
+	if err := slicer.PrepareRenderZ(); err != nil {
+		return fmt.Errorf("PrepareRenderZ: %v", err)
 	}
 
 	zp := &zipper{w: w}
@@ -71,7 +73,7 @@ type zipper struct {
 // zipper implements the SliceProcessor interface.
 var _ irmf.SliceProcessor = &zipper{}
 
-func (zp *zipper) ProcessSlice(n int, z float64, img image.Image) error {
+func (zp *zipper) ProcessSlice(n int, z, voxelRadius float64, img image.Image) error {
 	filename := fmt.Sprintf("mat%02d-%v/out%04d.png", zp.materialNum, zp.materialName, n)
 	fh := &zip.FileHeader{
 		Name:     filename,

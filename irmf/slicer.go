@@ -110,7 +110,7 @@ func (s *Slicer) createOrResizeWindow(width, height int) {
 
 // SliceProcessor represents a slice processor.
 type SliceProcessor interface {
-	ProcessSlice(sliceNum int, depth float64, img image.Image) error
+	ProcessSlice(sliceNum int, depth, voxelRadius float64, img image.Image) error
 }
 
 // Order represents the order of slice processing.
@@ -131,11 +131,12 @@ func (s *Slicer) RenderZSlices(materialNum int, sp SliceProcessor, order Order) 
 		delta float64
 	)
 
+	voxelRadius := 0.5 * s.delta
 	switch order {
 	case MinToMax:
-		min, max, delta = s.irmf.Min[2]+0.5*s.delta, s.irmf.Max[2], s.delta
+		min, max, delta = s.irmf.Min[2]+voxelRadius, s.irmf.Max[2], s.delta
 	case MaxToMin:
-		min, max, delta = s.irmf.Max[2]-0.5*s.delta, s.irmf.Min[2], -s.delta
+		min, max, delta = s.irmf.Max[2]-voxelRadius, s.irmf.Min[2], -s.delta
 	}
 
 	for z := min; z <= max; z += delta {
@@ -143,7 +144,7 @@ func (s *Slicer) RenderZSlices(materialNum int, sp SliceProcessor, order Order) 
 		if err != nil {
 			return fmt.Errorf("renderZSlice(%v,%v): %v", z, materialNum, err)
 		}
-		if err := sp.ProcessSlice(n, z, img); err != nil {
+		if err := sp.ProcessSlice(n, z, voxelRadius, img); err != nil {
 			return fmt.Errorf("ProcessSlice(%v,%v): %v", n, z, err)
 		}
 		n++
@@ -184,7 +185,28 @@ func (s *Slicer) renderZSlice(z float64, materialNum int) (image.Image, error) {
 	return rgba, nil
 }
 
-func (s *Slicer) PrepareRenderPlusZ() error {
+// PrepareRenderX prepares the GPU to render along the X axis.
+func (s *Slicer) PrepareRenderX() error {
+	left := float32(s.irmf.Min[1])
+	right := float32(s.irmf.Max[1])
+	bottom := float32(s.irmf.Min[2])
+	top := float32(s.irmf.Max[2])
+	camera := mgl32.LookAtV(mgl32.Vec3{3, 0, 0}, mgl32.Vec3{0, 0, 0}, mgl32.Vec3{0, 0, 1})
+	return s.prepareRender(left, right, bottom, top, camera)
+}
+
+// PrepareRenderY prepares the GPU to render along the Y axis.
+func (s *Slicer) PrepareRenderY() error {
+	left := float32(s.irmf.Min[0])
+	right := float32(s.irmf.Max[0])
+	bottom := float32(s.irmf.Min[2])
+	top := float32(s.irmf.Max[2])
+	camera := mgl32.LookAtV(mgl32.Vec3{0, -3, 0}, mgl32.Vec3{0, 0, 0}, mgl32.Vec3{0, 0, 1})
+	return s.prepareRender(left, right, bottom, top, camera)
+}
+
+// PrepareRenderZ prepares the GPU to render along the Z axis.
+func (s *Slicer) PrepareRenderZ() error {
 	left := float32(s.irmf.Min[0])
 	right := float32(s.irmf.Max[0])
 	bottom := float32(s.irmf.Min[1])
