@@ -19,11 +19,12 @@ func init() {
 
 // Slicer represents a slicer context.
 type Slicer struct {
-	irmf          *IRMF
-	width, height int
-	window        *glfw.Window
-	delta         float64 // millimeters (model units)
-	view          bool
+	irmf   *IRMF
+	width  int
+	height int
+	window *glfw.Window
+	delta  float64 // millimeters (model units)
+	view   bool
 
 	program uint32
 	model   mgl32.Mat4
@@ -31,13 +32,13 @@ type Slicer struct {
 
 	modelUniform        int32
 	uMaterialNumUniform int32
-	uZUniform           int32
+	uSliceUniform       int32 // u_slice => x, y, or z
 }
 
 // Init returns a new Slicer instance.
-func Init(view bool, width, height int, micronsResolution float64) *Slicer {
+func Init(view bool, micronsResolution float64) *Slicer {
 	// TODO: Support units other than millimeters.
-	return &Slicer{width: width, height: height, delta: micronsResolution / 1000.0, view: view}
+	return &Slicer{delta: micronsResolution / 1000.0, view: view}
 }
 
 // NewModel prepares the slicer to slice a new shader model.
@@ -62,7 +63,7 @@ func (s *Slicer) NumMaterials() int {
 
 // MaterialName returns the name of the n-th material (1-based).
 func (s *Slicer) MaterialName(n int) string {
-	if s.irmf == nil || n >= len(s.irmf.Materials) {
+	if s.irmf == nil || n > len(s.irmf.Materials) {
 		return ""
 	}
 	return s.irmf.Materials[n-1]
@@ -81,6 +82,7 @@ func (s *Slicer) MBB() (min, max [3]float64) {
 }
 
 func (s *Slicer) createOrResizeWindow(width, height int) {
+	log.Printf("createOrResizeWindow(%v,%v)", width, height)
 	if s.window != nil {
 		glfw.Terminate()
 	}
@@ -121,6 +123,68 @@ const (
 	MaxToMin
 )
 
+// RenderXSlices slices the given materialNum (1-based index)
+// to an image, calling the SliceProcessor for each slice.
+func (s *Slicer) RenderXSlices(materialNum int, sp SliceProcessor, order Order) error {
+	var (
+		n     int
+		min   float64
+		while func(x float64) bool
+		delta float64
+	)
+
+	voxelRadius := 0.5 * s.delta
+	switch order {
+	case MinToMax:
+		min, while, delta = s.irmf.Min[0]+voxelRadius, func(x float64) bool { return x <= s.irmf.Max[0] }, s.delta
+	case MaxToMin:
+		min, while, delta = s.irmf.Max[0]-voxelRadius, func(x float64) bool { return x >= s.irmf.Min[0] }, -s.delta
+	}
+
+	for x := min; while(x); x += delta {
+		img, err := s.renderSlice(x, materialNum)
+		if err != nil {
+			return fmt.Errorf("renderXSlice(%v,%v): %v", x, materialNum, err)
+		}
+		if err := sp.ProcessSlice(n, x, voxelRadius, img); err != nil {
+			return fmt.Errorf("ProcessSlice(%v,%v,%v): %v", n, x, voxelRadius, err)
+		}
+		n++
+	}
+	return nil
+}
+
+// RenderYSlices slices the given materialNum (1-based index)
+// to an image, calling the SliceProcessor for each slice.
+func (s *Slicer) RenderYSlices(materialNum int, sp SliceProcessor, order Order) error {
+	var (
+		n     int
+		min   float64
+		while func(y float64) bool
+		delta float64
+	)
+
+	voxelRadius := 0.5 * s.delta
+	switch order {
+	case MinToMax:
+		min, while, delta = s.irmf.Min[1]+voxelRadius, func(y float64) bool { return y <= s.irmf.Max[1] }, s.delta
+	case MaxToMin:
+		min, while, delta = s.irmf.Max[1]-voxelRadius, func(y float64) bool { return y >= s.irmf.Min[1] }, -s.delta
+	}
+
+	for y := min; while(y); y += delta {
+		img, err := s.renderSlice(y, materialNum)
+		if err != nil {
+			return fmt.Errorf("renderYSlice(%v,%v): %v", y, materialNum, err)
+		}
+		if err := sp.ProcessSlice(n, y, voxelRadius, img); err != nil {
+			return fmt.Errorf("ProcessSlice(%v,%v,%v): %v", n, y, voxelRadius, err)
+		}
+		n++
+	}
+	return nil
+}
+
 // RenderZSlices slices the given materialNum (1-based index)
 // to an image, calling the SliceProcessor for each slice.
 func (s *Slicer) RenderZSlices(materialNum int, sp SliceProcessor, order Order) error {
@@ -140,7 +204,7 @@ func (s *Slicer) RenderZSlices(materialNum int, sp SliceProcessor, order Order) 
 	}
 
 	for z := min; while(z); z += delta {
-		img, err := s.renderZSlice(z, materialNum)
+		img, err := s.renderSlice(z, materialNum)
 		if err != nil {
 			return fmt.Errorf("renderZSlice(%v,%v): %v", z, materialNum, err)
 		}
@@ -152,13 +216,13 @@ func (s *Slicer) RenderZSlices(materialNum int, sp SliceProcessor, order Order) 
 	return nil
 }
 
-func (s *Slicer) renderZSlice(z float64, materialNum int) (image.Image, error) {
+func (s *Slicer) renderSlice(sliceDepth float64, materialNum int) (image.Image, error) {
 	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
 	// Render
 	gl.UseProgram(s.program)
 	gl.UniformMatrix4fv(s.modelUniform, 1, false, &s.model[0])
-	gl.Uniform1f(s.uZUniform, float32(z))
+	gl.Uniform1f(s.uSliceUniform, float32(sliceDepth))
 	gl.Uniform1i(s.uMaterialNumUniform, int32(materialNum))
 
 	gl.BindVertexArray(s.vao)
@@ -192,7 +256,8 @@ func (s *Slicer) PrepareRenderX() error {
 	bottom := float32(s.irmf.Min[2])
 	top := float32(s.irmf.Max[2])
 	camera := mgl32.LookAtV(mgl32.Vec3{3, 0, 0}, mgl32.Vec3{0, 0, 0}, mgl32.Vec3{0, 0, 1})
-	return s.prepareRender(left, right, bottom, top, camera)
+	vec3Str := "u_slice,fragVert.yz"
+	return s.prepareRender(left, right, bottom, top, camera, vec3Str)
 }
 
 // PrepareRenderY prepares the GPU to render along the Y axis.
@@ -202,7 +267,8 @@ func (s *Slicer) PrepareRenderY() error {
 	bottom := float32(s.irmf.Min[2])
 	top := float32(s.irmf.Max[2])
 	camera := mgl32.LookAtV(mgl32.Vec3{0, -3, 0}, mgl32.Vec3{0, 0, 0}, mgl32.Vec3{0, 0, 1})
-	return s.prepareRender(left, right, bottom, top, camera)
+	vec3Str := "fragVert.x,u_slice,fragVert.z"
+	return s.prepareRender(left, right, bottom, top, camera, vec3Str)
 }
 
 // PrepareRenderZ prepares the GPU to render along the Z axis.
@@ -212,26 +278,30 @@ func (s *Slicer) PrepareRenderZ() error {
 	bottom := float32(s.irmf.Min[1])
 	top := float32(s.irmf.Max[1])
 	camera := mgl32.LookAtV(mgl32.Vec3{0, 0, 3}, mgl32.Vec3{0, 0, 0}, mgl32.Vec3{0, 1, 0})
-	return s.prepareRender(left, right, bottom, top, camera)
+	vec3Str := "fragVert.xy,u_slice"
+	return s.prepareRender(left, right, bottom, top, camera, vec3Str)
 }
 
-func (s *Slicer) prepareRender(left, right, bottom, top float32, camera mgl32.Mat4) error {
+func (s *Slicer) prepareRender(left, right, bottom, top float32, camera mgl32.Mat4, vec3Str string) error {
 	// Create or resize window if necessary.
 	near, far := float32(0.1), float32(100.0)
 	aspectRatio := (right - left) / (top - bottom)
-	frustumSize := float32(s.height)
-	resize := false
-	if aspectRatio*frustumSize < float32(s.width) {
-		frustumSize = float32(s.width) / aspectRatio
-		resize = true
+	newWidth := int(0.5 + (right-left)/float32(s.delta))
+	newHeight := int(0.5 + (top-bottom)/float32(s.delta))
+	log.Printf("aspectRatio=%v, newWidth=%v, newHeight=%v", aspectRatio, newWidth, newHeight)
+	if aspectRatio*float32(newHeight) < float32(newWidth) {
+		newHeight = int(0.5 + float32(newWidth)/aspectRatio)
 	}
+	resize := (s.width != newWidth || s.height != newHeight)
+
+	log.Printf("prepareRender: (%v,%v)-(%v,%v), resize=%v", left, bottom, right, top, resize)
 	if s.window == nil || resize {
-		s.createOrResizeWindow(int(aspectRatio*frustumSize), int(frustumSize))
+		s.createOrResizeWindow(newWidth, newHeight)
 	}
 
 	// Configure the vertex and fragment shaders
 	var err error
-	if s.program, err = newProgram(vertexShader, fsHeader+s.irmf.Shader+genFooter(len(s.irmf.Materials))); err != nil {
+	if s.program, err = newProgram(vertexShader, fsHeader+s.irmf.Shader+genFooter(len(s.irmf.Materials), vec3Str)); err != nil {
 		return fmt.Errorf("newProgram: %v", err)
 	}
 
@@ -249,9 +319,9 @@ func (s *Slicer) prepareRender(left, right, bottom, top float32, camera mgl32.Ma
 	gl.UniformMatrix4fv(s.modelUniform, 1, false, &s.model[0])
 
 	// Set up uniforms needed by shaders:
-	uZ := float32(0)
-	s.uZUniform = gl.GetUniformLocation(s.program, gl.Str("u_z\x00"))
-	gl.Uniform1f(s.uZUniform, uZ)
+	uSlice := float32(0)
+	s.uSliceUniform = gl.GetUniformLocation(s.program, gl.Str("u_slice\x00"))
+	gl.Uniform1f(s.uSliceUniform, uSlice)
 	uMaterialNum := int32(1)
 	s.uMaterialNumUniform = gl.GetUniformLocation(s.program, gl.Str("u_materialNum\x00"))
 	gl.Uniform1i(s.uMaterialNumUniform, uMaterialNum)
@@ -359,7 +429,7 @@ precision highp float;
 precision highp int;
 in vec3 fragVert;
 out vec4 outputColor;
-uniform float u_z;
+uniform float u_slice;
 uniform int u_materialNum;
 `
 
@@ -380,21 +450,21 @@ func check(fmtStr string, args ...interface{}) {
 	}
 }
 
-func genFooter(numMaterials int) string {
+func genFooter(numMaterials int, vec3Str string) string {
 	switch numMaterials {
 	default:
-		return fsFooterFmt4 + "\x00"
+		return fmt.Sprintf(fsFooterFmt4, vec3Str) + "\x00"
 	case 5, 6, 7, 8, 9:
-		return fsFooterFmt9 + "\x00"
+		return fmt.Sprintf(fsFooterFmt9, vec3Str) + "\x00"
 	case 10, 11, 12, 13, 14, 15, 16:
-		return fsFooterFmt16 + "\x00"
+		return fmt.Sprintf(fsFooterFmt16, vec3Str) + "\x00"
 	}
 }
 
 const fsFooterFmt4 = `
 void main() {
   vec4 m;
-  mainModel4(m, vec3(fragVert.xy,u_z));
+  mainModel4(m, vec3(%v));
   switch(u_materialNum) {
   case 1:
     outputColor = vec4(m.x);
@@ -415,7 +485,7 @@ void main() {
 const fsFooterFmt9 = `
 void main() {
   mat3 m;
-  mainModel9(m, vec3(fragVert.xy,u_z));
+  mainModel9(m, vec3(%v));
   switch(u_materialNum) {
   case 1:
     outputColor = vec4(m[0][0]);
@@ -451,7 +521,7 @@ void main() {
 const fsFooterFmt16 = `
 void main() {
   mat4 m;
-  mainModel16(m, vec3(fragVert.xy,u_z));
+  mainModel16(m, vec3(%v));
   switch(u_materialNum) {
   case 1:
     outputColor = vec4(m[0][0]);

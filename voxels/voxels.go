@@ -4,7 +4,6 @@ package voxels
 import (
 	"fmt"
 	"image"
-	"log"
 	"strings"
 
 	"github.com/gmlewis/irmf-slicer/irmf"
@@ -91,10 +90,6 @@ type client struct {
 // client implements the SliceProcessor interface.
 var _ irmf.SliceProcessor = &client{}
 
-func (c *client) genKey(u, v int) int {
-	return v*c.uSize + u
-}
-
 // uvSlice represents a slice of voxels indexed by uv (integer) coordinates
 // where the depth value represents the third dimension of the current face.
 //
@@ -117,7 +112,9 @@ func (c *client) newNormal(x, y, z float32) {
 	c.curSlice = nil
 }
 
-func (c *client) ProcessSlice(n int, z, voxelRadius float64, img image.Image) error {
+func (c *client) ProcessSlice(sliceNum int, z, voxelRadius float64, img image.Image) error {
+	// log.Printf("voxels.ProcessSlice(sliceNum=%v, z=%v, voxelRadius=%v)", sliceNum, z, voxelRadius)
+
 	min, _ := c.slicer.MBB()
 	depth := float32(z) + c.n[2]*float32(voxelRadius)
 	vr := float32(voxelRadius)
@@ -126,7 +123,7 @@ func (c *client) ProcessSlice(n int, z, voxelRadius float64, img image.Image) er
 		x := 2.0*vr*float32(u) + vr + float32(min[0])
 		y := 2.0*vr*float32(v) + vr + float32(min[1])
 
-		log.Printf("writeFunc(%v,%v): (%v,%v,%v)-(%v,%v,%v)", u, v, x-vr, y-vr, depth, x+vr, y+vr, depth)
+		// log.Printf("writeFunc(%v,%v): (%v,%v,%v)-(%v,%v,%v)", u, v, x-vr, y-vr, depth, x+vr, y+vr, depth)
 
 		t := &stl.Tri{
 			N:  c.n,
@@ -155,21 +152,26 @@ type writeFunc func(u, v int) error
 // newSlice processes a new slice of voxels with the given writeFunc.
 func (c *client) newSlice(img image.Image, wf writeFunc) error {
 	b := img.Bounds()
-	log.Printf("newSlice: img: %v", b)
+
+	// log.Printf("newSlice: img: %v", b)
 	c.lastSlice = c.curSlice
 	c.curSlice = &uvSlice{
 		p: map[int]struct{}{},
+	}
+	// b.Min.X and b.Min.Y are always zero in this slicer.
+	uSize := b.Max.X - b.Min.X
+	genKey := func(u, v int) int {
+		return v*uSize + u
 	}
 
 	for v := b.Min.Y; v < b.Max.Y; v++ {
 		for u := b.Min.X; u < b.Max.X; u++ {
 			color := img.At(u, v)
-			log.Printf("img.At(%v,%v)=%v", u, v, color)
 			if r, _, _, _ := color.RGBA(); r == 0 {
 				continue
 			}
 
-			key := c.genKey(u, v)
+			key := genKey(u, v)
 			c.curSlice.p[key] = struct{}{}
 			if c.lastSlice != nil {
 				if _, ok := c.lastSlice.p[key]; ok {

@@ -1,6 +1,9 @@
 // irmf-slicer slices one or more IRMF shaders into voxel image slices
 // at the requested resolution.
 //
+// It then writes a ZIP of the slices or an STL file for each of
+// the materials, or both.
+//
 // See https://github.com/gmlewis/irmf for more information about IRMF.
 package main
 
@@ -12,20 +15,26 @@ import (
 	"strings"
 
 	"github.com/gmlewis/irmf-slicer/irmf"
+	"github.com/gmlewis/irmf-slicer/voxels"
 	"github.com/gmlewis/irmf-slicer/zipper"
 )
 
 var (
-	microns = flag.Float64("res", 42.0, "Resolution in microns")
-	view    = flag.Bool("view", false, "Render slicing to window")
-	width   = flag.Int("width", 640, "Initial window width")
-	height  = flag.Int("height", 480, "Initial window height")
+	microns  = flag.Float64("res", 42.0, "Resolution in microns")
+	view     = flag.Bool("view", false, "Render slicing to window")
+	writeSTL = flag.Bool("stl", false, "Write stl files, one per material")
+	writeZip = flag.Bool("zip", false, "Write slices to zip file")
 )
 
 func main() {
 	flag.Parse()
 
-	slicer := irmf.Init(*view, *width, *height, *microns)
+	if !*writeSTL && !*writeZip {
+		flag.Usage()
+		log.Fatalf("Must use -stl or -zip or both")
+	}
+
+	slicer := irmf.Init(*view, *microns)
 	defer slicer.Close()
 
 	for _, arg := range flag.Args() {
@@ -41,10 +50,20 @@ func main() {
 		err = slicer.NewModel(buf)
 		check("slicer.New: %v", err)
 
-		zipName := filepath.Base(arg) + ".zip"
-		log.Printf("Slicing %v materials into file %q...", slicer.NumMaterials(), zipName)
-		err = zipper.Slice(zipName, slicer)
-		check("Slice: %v", err)
+		baseName := strings.TrimSuffix(filepath.Base(arg), ".irmf")
+
+		if *writeSTL {
+			log.Printf("Slicing %v materials into separate STL files...", slicer.NumMaterials())
+			err = voxels.Slice(baseName, slicer)
+			check("voxels.Slice: %v", err)
+		}
+
+		if *writeZip {
+			zipName := baseName + ".irmf.zip"
+			log.Printf("Slicing %v materials into file %q...", slicer.NumMaterials(), zipName)
+			err = zipper.Slice(zipName, slicer)
+			check("zipper.Slice: %v", err)
+		}
 	}
 
 	log.Println("Done.")
