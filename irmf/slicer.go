@@ -1,15 +1,11 @@
 package irmf
 
 import (
-	"archive/zip"
 	"fmt"
 	"image"
-	"image/png"
 	"log"
-	"os"
 	"runtime"
 	"strings"
-	"time"
 
 	"github.com/go-gl/gl/v4.6-core/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
@@ -44,16 +40,44 @@ func Init(view bool, width, height int, micronsResolution float64) *Slicer {
 	return &Slicer{width: width, height: height, delta: micronsResolution / 1000.0, view: view}
 }
 
-// New prepares the slicer to slice a new shader model.
-func (s *Slicer) New(shaderSrc []byte) (*IRMF, error) {
-	var err error
-	s.irmf, err = newModel(shaderSrc)
-	return s.irmf, err
+// NewModel prepares the slicer to slice a new shader model.
+func (s *Slicer) NewModel(shaderSrc []byte) error {
+	irmf, err := newModel(shaderSrc)
+	s.irmf = irmf
+	return err
 }
 
 // Close closes the GLFW window and releases any Slicer resources.
 func (s *Slicer) Close() {
 	glfw.Terminate()
+}
+
+// NumMaterials returns the number of materials in the most recent IRMF model.
+func (s *Slicer) NumMaterials() int {
+	if s.irmf == nil {
+		return 0
+	}
+	return len(s.irmf.Materials)
+}
+
+// MaterialName returns the name of the n-th material (1-based).
+func (s *Slicer) MaterialName(n int) string {
+	if s.irmf == nil || n >= len(s.irmf.Materials) {
+		return ""
+	}
+	return s.irmf.Materials[n-1]
+}
+
+// MBB returns the MBB of the IRMF model.
+func (s *Slicer) MBB() (min, max [3]float64) {
+	if s.irmf != nil {
+		if len(s.irmf.Min) != 3 || len(s.irmf.Max) != 3 {
+			log.Fatalf("Bad IRMF model: min=%#v, max=%#v", s.irmf.Min, s.irmf.Max)
+		}
+		min[0], min[1], min[2] = s.irmf.Min[0], s.irmf.Min[1], s.irmf.Min[2]
+		max[0], max[1], max[2] = s.irmf.Max[0], s.irmf.Max[1], s.irmf.Max[2]
+	}
+	return min, max
 }
 
 func (s *Slicer) createOrResizeWindow(width, height int) {
@@ -84,52 +108,50 @@ func (s *Slicer) createOrResizeWindow(width, height int) {
 	fmt.Println("OpenGL version", version)
 }
 
-// Slice slices an IRMF shader into a ZIP containing many voxel slices
-func (s *Slicer) Slice(zipName string) error {
-	zf, err := os.Create(zipName)
-	check("Create: %v", err)
-	defer func() {
-		err := zf.Close()
-		check("zip close: %v", err)
-	}()
-	w := zip.NewWriter(zf)
+// SliceProcessor represents a slice processor.
+type SliceProcessor interface {
+	ProcessSlice(sliceNum int, depth float64, img image.Image) error
+}
 
-	if err := s.prepareRender(); err != nil {
-		return fmt.Errorf("compile shader: %v", err)
+// Order represents the order of slice processing.
+type Order byte
+
+const (
+	MinToMax Order = iota
+	MaxToMin
+)
+
+// RenderZSlices slices the given materialNum (1-based index)
+// to an image, calling the SliceProcessor for each slice.
+func (s *Slicer) RenderZSlices(materialNum int, sp SliceProcessor, order Order) error {
+	var (
+		n     int
+		min   float64
+		max   float64
+		delta float64
+	)
+
+	switch order {
+	case MinToMax:
+		min, max, delta = s.irmf.Min[2]+0.5*s.delta, s.irmf.Max[2], s.delta
+	case MaxToMin:
+		min, max, delta = s.irmf.Max[2]-0.5*s.delta, s.irmf.Min[2], -s.delta
 	}
 
-	for materialNum := 1; materialNum <= len(s.irmf.Materials); materialNum++ {
-		var n int
-		for z := s.irmf.Min[2] + 0.5*s.delta; z <= s.irmf.Max[2]; z += s.delta {
-			img, err := s.renderSlice(z, materialNum)
-			if err != nil {
-				return fmt.Errorf("renderSlice: %v", err)
-			}
-			materialName := strings.ReplaceAll(s.irmf.Materials[materialNum-1], " ", "-")
-			filename := fmt.Sprintf("mat%02d-%v/out%04d.png", materialNum, materialName, n)
-			fh := &zip.FileHeader{
-				Name:     filename,
-				Comment:  fmt.Sprintf("z=%0.2f", z),
-				Modified: time.Now(),
-			}
-			f, err := w.CreateHeader(fh)
-			if err != nil {
-				return fmt.Errorf("Unable to create ZIP file %q: %v", filename, err)
-			}
-			if err := png.Encode(f, img); err != nil {
-				return fmt.Errorf("PNG encode: %v", err)
-			}
-			n++
+	for z := min; z <= max; z += delta {
+		img, err := s.renderZSlice(z, materialNum)
+		if err != nil {
+			return fmt.Errorf("renderZSlice(%v,%v): %v", z, materialNum, err)
 		}
-	}
-
-	if err := w.Close(); err != nil {
-		return fmt.Errorf("Unable to close ZIP: %v", err)
+		if err := sp.ProcessSlice(n, z, img); err != nil {
+			return fmt.Errorf("ProcessSlice(%v,%v): %v", n, z, err)
+		}
+		n++
 	}
 	return nil
 }
 
-func (s *Slicer) renderSlice(z float64, materialNum int) (image.Image, error) {
+func (s *Slicer) renderZSlice(z float64, materialNum int) (image.Image, error) {
 	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
 	// Render
@@ -162,12 +184,17 @@ func (s *Slicer) renderSlice(z float64, materialNum int) (image.Image, error) {
 	return rgba, nil
 }
 
-func (s *Slicer) prepareRender() error {
-	// Create or resize window if necessary.
+func (s *Slicer) PrepareRenderPlusZ() error {
 	left := float32(s.irmf.Min[0])
 	right := float32(s.irmf.Max[0])
 	bottom := float32(s.irmf.Min[1])
 	top := float32(s.irmf.Max[1])
+	camera := mgl32.LookAtV(mgl32.Vec3{0, 0, 3}, mgl32.Vec3{0, 0, 0}, mgl32.Vec3{0, 1, 0})
+	return s.prepareRender(left, right, bottom, top, camera)
+}
+
+func (s *Slicer) prepareRender(left, right, bottom, top float32, camera mgl32.Mat4) error {
+	// Create or resize window if necessary.
 	near, far := float32(0.1), float32(100.0)
 	aspectRatio := (right - left) / (top - bottom)
 	frustumSize := float32(s.height)
@@ -179,7 +206,6 @@ func (s *Slicer) prepareRender() error {
 	if s.window == nil || resize {
 		s.createOrResizeWindow(int(aspectRatio*frustumSize), int(frustumSize))
 	}
-	log.Printf("MBB=(%v,%v,%v)-(%v,%v,%v)", left, bottom, s.irmf.Min[2], right, top, s.irmf.Max[2])
 
 	// Configure the vertex and fragment shaders
 	var err error
@@ -193,7 +219,6 @@ func (s *Slicer) prepareRender() error {
 	projectionUniform := gl.GetUniformLocation(s.program, gl.Str("projection\x00"))
 	gl.UniformMatrix4fv(projectionUniform, 1, false, &projection[0])
 
-	camera := mgl32.LookAtV(mgl32.Vec3{0, 0, 3}, mgl32.Vec3{0, 0, 0}, mgl32.Vec3{0, 1, 0})
 	cameraUniform := gl.GetUniformLocation(s.program, gl.Str("camera\x00"))
 	gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
 

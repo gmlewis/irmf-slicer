@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/gmlewis/irmf-slicer/irmf"
+	"github.com/gmlewis/irmf-slicer/zipper"
 )
 
 var (
@@ -32,15 +33,17 @@ func main() {
 			log.Printf("Skipping non-IRMF file %q", arg)
 			continue
 		}
+
 		log.Printf("Processing IRMF shader %q...", filepath.Base(arg))
 		buf, err := ioutil.ReadFile(arg)
 		check("ReadFile: %v", err)
-		irmf, err := slicer.New(buf)
+
+		err = slicer.NewModel(buf)
 		check("slicer.New: %v", err)
 
 		zipName := filepath.Base(arg) + ".zip"
-		log.Printf("Slicing %v materials into file %q...", len(irmf.Materials), zipName)
-		err = slicer.Slice(zipName)
+		log.Printf("Slicing %v materials into file %q...", slicer.NumMaterials(), zipName)
+		err = zipper.Slice(zipName, slicer)
 		check("Slice: %v", err)
 	}
 
