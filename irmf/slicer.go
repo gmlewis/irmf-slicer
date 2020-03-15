@@ -127,25 +127,25 @@ func (s *Slicer) RenderZSlices(materialNum int, sp SliceProcessor, order Order) 
 	var (
 		n     int
 		min   float64
-		max   float64
+		while func(z float64) bool
 		delta float64
 	)
 
 	voxelRadius := 0.5 * s.delta
 	switch order {
 	case MinToMax:
-		min, max, delta = s.irmf.Min[2]+voxelRadius, s.irmf.Max[2], s.delta
+		min, while, delta = s.irmf.Min[2]+voxelRadius, func(z float64) bool { return z <= s.irmf.Max[2] }, s.delta
 	case MaxToMin:
-		min, max, delta = s.irmf.Max[2]-voxelRadius, s.irmf.Min[2], -s.delta
+		min, while, delta = s.irmf.Max[2]-voxelRadius, func(z float64) bool { return z >= s.irmf.Min[2] }, -s.delta
 	}
 
-	for z := min; z <= max; z += delta {
+	for z := min; while(z); z += delta {
 		img, err := s.renderZSlice(z, materialNum)
 		if err != nil {
 			return fmt.Errorf("renderZSlice(%v,%v): %v", z, materialNum, err)
 		}
 		if err := sp.ProcessSlice(n, z, voxelRadius, img); err != nil {
-			return fmt.Errorf("ProcessSlice(%v,%v): %v", n, z, err)
+			return fmt.Errorf("ProcessSlice(%v,%v,%v): %v", n, z, voxelRadius, err)
 		}
 		n++
 	}

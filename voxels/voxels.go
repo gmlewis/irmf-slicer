@@ -4,6 +4,7 @@ package voxels
 import (
 	"fmt"
 	"image"
+	"log"
 	"strings"
 
 	"github.com/gmlewis/irmf-slicer/irmf"
@@ -36,7 +37,7 @@ func Slice(baseFilename string, slicer Slicer) error {
 			return fmt.Errorf("stl.New: %v", err)
 		}
 
-		c := new(w)
+		c := new(w, slicer)
 
 		if err := slicer.PrepareRenderZ(); err != nil {
 			return fmt.Errorf("PrepareRenderZ: %v", err)
@@ -48,11 +49,11 @@ func Slice(baseFilename string, slicer Slicer) error {
 			return fmt.Errorf("RenderZSlices: %v", err)
 		}
 
-		// // Process -Z
-		// c.newNormal(0, 0, -1)
-		// if err := slicer.RenderZSlices(materialNum, c, irmf.MaxToMin); err != nil {
-		// 	return fmt.Errorf("RenderZSlices: %v", err)
-		// }
+		// Process -Z
+		c.newNormal(0, 0, -1)
+		if err := slicer.RenderZSlices(materialNum, c, irmf.MinToMax); err != nil {
+			return fmt.Errorf("RenderZSlices: %v", err)
+		}
 
 		if err := w.Close(); err != nil {
 			return fmt.Errorf("Close: %v", err)
@@ -70,7 +71,8 @@ type TriWriter interface {
 // client represents a voxels-to-STL converter.
 // It implements the irmf.SliceProcessor interface.
 type client struct {
-	w TriWriter
+	w      TriWriter
+	slicer Slicer
 
 	// Current normal vector
 	n [3]float32
@@ -80,49 +82,106 @@ type client struct {
 
 	// Current slice
 	curSlice *uvSlice
+
+	uSize int
+	vSize int
+	depth float32
 }
 
 // client implements the SliceProcessor interface.
 var _ irmf.SliceProcessor = &client{}
 
+func (c *client) genKey(u, v int) int {
+	return v*c.uSize + u
+}
+
 // uvSlice represents a slice of voxels indexed by uv (integer) coordinates
-// where the w value represents the third dimension of the current face.
+// where the depth value represents the third dimension of the current face.
 //
 // For example, when processing the +X normal vector, u represents Y,
-// v represents Z, and w represents the current X value of the front
+// v represents Z, and depth represents the current X value of the front
 // face of the voxel.
 type uvSlice struct {
-	uSize int
-	vSize int
-	w     float32
-
 	p map[int]struct{}
 }
 
 // new returns a new voxels to STL client.
-func new(w TriWriter) *client {
-	return &client{
-		w: w,
-	}
+func new(w TriWriter, slicer Slicer) *client {
+	return &client{w: w, slicer: slicer}
+}
+
+// newNormal starts a new normal unit vector along a major axis (e.g. +X,+Y,+Z,-X,-Y,-Z).
+func (c *client) newNormal(x, y, z float32) {
+	c.n = [3]float32{x, y, z}
+	c.lastSlice = nil
+	c.curSlice = nil
 }
 
 func (c *client) ProcessSlice(n int, z, voxelRadius float64, img image.Image) error {
-	c.newSlice(1, 1, 10)
-	return nil
+	min, _ := c.slicer.MBB()
+	depth := float32(z) + c.n[2]*float32(voxelRadius)
+	vr := float32(voxelRadius)
+
+	wf := func(u, v int) error {
+		x := 2.0*vr*float32(u) + vr + float32(min[0])
+		y := 2.0*vr*float32(v) + vr + float32(min[1])
+
+		log.Printf("writeFunc(%v,%v): (%v,%v,%v)-(%v,%v,%v)", u, v, x-vr, y-vr, depth, x+vr, y+vr, depth)
+
+		t := &stl.Tri{
+			N:  c.n,
+			V1: [3]float32{x - vr, y - vr, depth},
+			V2: [3]float32{x + vr, y - vr, depth},
+			V3: [3]float32{x + vr, y + vr, depth},
+		}
+		if err := c.w.Write(t); err != nil {
+			return err
+		}
+
+		t = &stl.Tri{
+			N:  c.n,
+			V1: [3]float32{x - vr, y - vr, depth},
+			V2: [3]float32{x + vr, y + vr, depth},
+			V3: [3]float32{x - vr, y + vr, depth},
+		}
+		return c.w.Write(t)
+	}
+
+	return c.newSlice(img, wf)
 }
 
-// newNormal starts a new normal vector (e.g. +X,+Y,+Z,-X,-Y,-Z).
-func (c *client) newNormal(x, y, z float32) {
-	c.n = [3]float32{x, y, z}
-}
+type writeFunc func(u, v int) error
 
-// newSlice starts a new slice of voxels with the given dimensions and w (depth).
-func (c *client) newSlice(uSize, vSize int, w float32) {
+// newSlice processes a new slice of voxels with the given writeFunc.
+func (c *client) newSlice(img image.Image, wf writeFunc) error {
+	b := img.Bounds()
+	log.Printf("newSlice: img: %v", b)
 	c.lastSlice = c.curSlice
 	c.curSlice = &uvSlice{
-		uSize: uSize,
-		vSize: vSize,
-		w:     w,
-		p:     map[int]struct{}{},
+		p: map[int]struct{}{},
 	}
+
+	for v := b.Min.Y; v < b.Max.Y; v++ {
+		for u := b.Min.X; u < b.Max.X; u++ {
+			color := img.At(u, v)
+			log.Printf("img.At(%v,%v)=%v", u, v, color)
+			if r, _, _, _ := color.RGBA(); r == 0 {
+				continue
+			}
+
+			key := c.genKey(u, v)
+			c.curSlice.p[key] = struct{}{}
+			if c.lastSlice != nil {
+				if _, ok := c.lastSlice.p[key]; ok {
+					continue // already covered
+				}
+			}
+
+			if err := wf(u, v); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
