@@ -237,7 +237,7 @@ func (c *client) ProcessZSlice(sliceNum int, z, voxelRadius float32, img image.I
 	vr := float32(voxelRadius)
 	vr2 := float32(2.0 * voxelRadius)
 
-	log.Printf("voxels.ProcessZSlice(sliceNum=%v, z=%v, voxelRadius=%v), depth=%v, vr2=%v", sliceNum, z, voxelRadius, depth, vr2)
+	// log.Printf("voxels.ProcessZSlice(sliceNum=%v, z=%v, voxelRadius=%v), depth=%v, vr2=%v", sliceNum, z, voxelRadius, depth, vr2)
 
 	var xpwf, xmwf, ypwf, ymwf writeFunc
 	if c.n[2] > 0 { // Also process +X, -X, +Y, and -Y.
