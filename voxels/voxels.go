@@ -39,37 +39,37 @@ func Slice(baseFilename string, slicer Slicer) error {
 
 		c := new(w, slicer)
 
-		if err := slicer.PrepareRenderX(); err != nil {
-			return fmt.Errorf("PrepareRenderX: %v", err)
-		}
+		// if err := slicer.PrepareRenderX(); err != nil {
+		// 	return fmt.Errorf("PrepareRenderX: %v", err)
+		// }
+		//
+		// log.Printf("Processing +X...")
+		// c.newNormal(1, 0, 0)
+		// if err := slicer.RenderXSlices(materialNum, c, irmf.MaxToMin); err != nil {
+		// 	return fmt.Errorf("RenderXSlices: %v", err)
+		// }
+		//
+		// log.Printf("Processing -X...")
+		// c.newNormal(-1, 0, 0)
+		// if err := slicer.RenderXSlices(materialNum, c, irmf.MinToMax); err != nil {
+		// 	return fmt.Errorf("RenderXSlices: %v", err)
+		// }
 
-		log.Printf("Processing +X...")
-		c.newNormal(1, 0, 0)
-		if err := slicer.RenderXSlices(materialNum, c, irmf.MaxToMin); err != nil {
-			return fmt.Errorf("RenderXSlices: %v", err)
-		}
-
-		log.Printf("Processing -X...")
-		c.newNormal(-1, 0, 0)
-		if err := slicer.RenderXSlices(materialNum, c, irmf.MinToMax); err != nil {
-			return fmt.Errorf("RenderXSlices: %v", err)
-		}
-
-		if err := slicer.PrepareRenderY(); err != nil {
-			return fmt.Errorf("PrepareRenderY: %v", err)
-		}
-
-		log.Printf("Processing +Y...")
-		c.newNormal(0, 1, 0)
-		if err := slicer.RenderYSlices(materialNum, c, irmf.MaxToMin); err != nil {
-			return fmt.Errorf("RenderYSlices: %v", err)
-		}
-
-		log.Printf("Processing -Y...")
-		c.newNormal(0, -1, 0)
-		if err := slicer.RenderYSlices(materialNum, c, irmf.MinToMax); err != nil {
-			return fmt.Errorf("RenderYSlices: %v", err)
-		}
+		// if err := slicer.PrepareRenderY(); err != nil {
+		// 	return fmt.Errorf("PrepareRenderY: %v", err)
+		// }
+		//
+		// log.Printf("Processing +Y...")
+		// c.newNormal(0, 1, 0)
+		// if err := slicer.RenderYSlices(materialNum, c, irmf.MaxToMin); err != nil {
+		// 	return fmt.Errorf("RenderYSlices: %v", err)
+		// }
+		//
+		// log.Printf("Processing -Y...")
+		// c.newNormal(0, -1, 0)
+		// if err := slicer.RenderYSlices(materialNum, c, irmf.MinToMax); err != nil {
+		// 	return fmt.Errorf("RenderYSlices: %v", err)
+		// }
 
 		if err := slicer.PrepareRenderZ(); err != nil {
 			return fmt.Errorf("PrepareRenderZ: %v", err)
@@ -167,7 +167,7 @@ func (c *client) ProcessXSlice(sliceNum int, x, voxelRadius float32, img image.I
 		}
 
 		t := &stl.Tri{
-			N:  c.n,
+			N:  [3]float32{c.n[0], c.n[1], c.n[2]},
 			V1: [3]float32{depth, y - vr, z - vr},
 			V2: [3]float32{depth, y + vr, z - vr},
 			V3: [3]float32{depth, y + vr, z + vr},
@@ -177,7 +177,7 @@ func (c *client) ProcessXSlice(sliceNum int, x, voxelRadius float32, img image.I
 		}
 
 		t = &stl.Tri{
-			N:  c.n,
+			N:  [3]float32{c.n[0], c.n[1], c.n[2]},
 			V1: [3]float32{depth, y - vr, z - vr},
 			V2: [3]float32{depth, y + vr, z + vr},
 			V3: [3]float32{depth, y - vr, z + vr},
@@ -208,7 +208,7 @@ func (c *client) ProcessYSlice(sliceNum int, y, voxelRadius float32, img image.I
 		}
 
 		t := &stl.Tri{
-			N:  c.n,
+			N:  [3]float32{c.n[0], c.n[1], c.n[2]},
 			V1: [3]float32{x - vr, depth, z - vr},
 			V2: [3]float32{x + vr, depth, z - vr},
 			V3: [3]float32{x + vr, depth, z + vr},
@@ -218,7 +218,7 @@ func (c *client) ProcessYSlice(sliceNum int, y, voxelRadius float32, img image.I
 		}
 
 		t = &stl.Tri{
-			N:  c.n,
+			N:  [3]float32{c.n[0], c.n[1], c.n[2]},
 			V1: [3]float32{x - vr, depth, z - vr},
 			V2: [3]float32{x + vr, depth, z + vr},
 			V3: [3]float32{x - vr, depth, z + vr},
@@ -248,20 +248,27 @@ func (c *client) ProcessZSlice(sliceNum int, z, voxelRadius float32, img image.I
 			log.Printf("z writeFunc(%v,%v): (%v,%v,%v)-(%v,%v,%v)", u, v, x-vr, y-vr, depth, x+vr, y+vr, depth)
 		}
 
+		n := [3]float32{c.n[0], c.n[1], c.n[2]}
+		v1 := [3]float32{x - vr, y - vr, depth}
+		v3 := [3]float32{x + vr, y + vr, depth}
+		if c.n[2] < 0 {
+			v1, v3 = v3, v1
+		}
+
 		t := &stl.Tri{
-			N:  c.n,
-			V1: [3]float32{x - vr, y - vr, depth},
+			N:  n,
+			V1: v1,
 			V2: [3]float32{x + vr, y - vr, depth},
-			V3: [3]float32{x + vr, y + vr, depth},
+			V3: v3,
 		}
 		if err := c.w.Write(t); err != nil {
 			return err
 		}
 
 		t = &stl.Tri{
-			N:  c.n,
-			V1: [3]float32{x - vr, y - vr, depth},
-			V2: [3]float32{x + vr, y + vr, depth},
+			N:  n,
+			V1: v1,
+			V2: v3,
 			V3: [3]float32{x - vr, y + vr, depth},
 		}
 		return c.w.Write(t)
