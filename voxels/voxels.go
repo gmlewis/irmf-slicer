@@ -16,7 +16,7 @@ import (
 type Slicer interface {
 	NumMaterials() int
 	MaterialName(materialNum int) string // 1-based
-	MBB() (min, max [3]float64)          // in millimeters
+	MBB() (min, max [3]float32)          // in millimeters
 
 	PrepareRenderX() error
 	RenderXSlices(materialNum int, sp irmf.XSliceProcessor, order irmf.Order) error
@@ -147,14 +147,24 @@ func (c *client) newNormal(x, y, z float32) {
 	c.curSlice = nil
 }
 
-func (c *client) ProcessXSlice(sliceNum int, x, voxelRadius float64, img image.Image) error {
+func (c *client) ProcessXSlice(sliceNum int, x, voxelRadius float32, img image.Image) error {
+	debug := false // x <= 2.0*voxelRadius
+	if debug {
+		log.Printf("voxels.ProcessXSlice(sliceNum=%v, x=%v, voxelRadius=%v)", sliceNum, x, voxelRadius)
+	}
+
 	min, _ := c.slicer.MBB()
 	depth := float32(x) + c.n[0]*float32(voxelRadius)
 	vr := float32(voxelRadius)
+	vr2 := float32(2.0 * voxelRadius)
 
 	wf := func(u, v int) error {
-		y := 2.0*vr*float32(u) + vr + float32(min[1])
-		z := 2.0*vr*float32(v) + vr + float32(min[2])
+		y := vr2*float32(u) + vr + float32(min[1])
+		z := vr2*float32(v) + vr + float32(min[2])
+
+		if u == 0 && v == 0 && debug {
+			log.Printf("x writeFunc(%v,%v): (%v,%v,%v)-(%v,%v,%v)", u, v, depth, y-vr, z-vr, depth, y+vr, z+vr)
+		}
 
 		t := &stl.Tri{
 			N:  c.n,
@@ -178,14 +188,24 @@ func (c *client) ProcessXSlice(sliceNum int, x, voxelRadius float64, img image.I
 	return c.newSlice(img, wf)
 }
 
-func (c *client) ProcessYSlice(sliceNum int, y, voxelRadius float64, img image.Image) error {
+func (c *client) ProcessYSlice(sliceNum int, y, voxelRadius float32, img image.Image) error {
+	debug := false // y <= 2.0*voxelRadius
+	if debug {
+		log.Printf("voxels.ProcessYSlice(sliceNum=%v, y=%v, voxelRadius=%v)", sliceNum, y, voxelRadius)
+	}
+
 	min, _ := c.slicer.MBB()
 	depth := float32(y) + c.n[1]*float32(voxelRadius)
 	vr := float32(voxelRadius)
+	vr2 := float32(2.0 * voxelRadius)
 
 	wf := func(u, v int) error {
-		x := 2.0*vr*float32(u) + vr + float32(min[0])
-		z := 2.0*vr*float32(v) + vr + float32(min[2])
+		x := vr2*float32(u) + vr + float32(min[0])
+		z := vr2*float32(v) + vr + float32(min[2])
+
+		if u == 0 && v == 0 && debug {
+			log.Printf("y writeFunc(%v,%v): (%v,%v,%v)-(%v,%v,%v)", u, v, x-vr, depth, z-vr, x+vr, depth, z+vr)
+		}
 
 		t := &stl.Tri{
 			N:  c.n,
@@ -209,18 +229,24 @@ func (c *client) ProcessYSlice(sliceNum int, y, voxelRadius float64, img image.I
 	return c.newSlice(img, wf)
 }
 
-func (c *client) ProcessZSlice(sliceNum int, z, voxelRadius float64, img image.Image) error {
-	// log.Printf("voxels.ProcessSlice(sliceNum=%v, z=%v, voxelRadius=%v)", sliceNum, z, voxelRadius)
+func (c *client) ProcessZSlice(sliceNum int, z, voxelRadius float32, img image.Image) error {
+	debug := false // z <= 2.0*voxelRadius
+	if debug {
+		log.Printf("voxels.ProcessZSlice(sliceNum=%v, z=%v, voxelRadius=%v)", sliceNum, z, voxelRadius)
+	}
 
 	min, _ := c.slicer.MBB()
 	depth := float32(z) + c.n[2]*float32(voxelRadius)
 	vr := float32(voxelRadius)
+	vr2 := float32(2.0 * voxelRadius)
 
 	wf := func(u, v int) error {
-		x := 2.0*vr*float32(u) + vr + float32(min[0])
-		y := 2.0*vr*float32(v) + vr + float32(min[1])
+		x := vr2*float32(u) + vr + float32(min[0])
+		y := vr2*float32(v) + vr + float32(min[1])
 
-		// log.Printf("writeFunc(%v,%v): (%v,%v,%v)-(%v,%v,%v)", u, v, x-vr, y-vr, depth, x+vr, y+vr, depth)
+		if u == 0 && v == 0 && debug {
+			log.Printf("z writeFunc(%v,%v): (%v,%v,%v)-(%v,%v,%v)", u, v, x-vr, y-vr, depth, x+vr, y+vr, depth)
+		}
 
 		t := &stl.Tri{
 			N:  c.n,

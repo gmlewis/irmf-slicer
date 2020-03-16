@@ -34,7 +34,7 @@ func main() {
 		log.Fatalf("Must use -stl or -zip or both")
 	}
 
-	slicer := irmf.Init(*view, *microns)
+	slicer := irmf.Init(*view, float32(*microns))
 	defer slicer.Close()
 
 	for _, arg := range flag.Args() {

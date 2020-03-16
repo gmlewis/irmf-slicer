@@ -23,7 +23,7 @@ type Slicer struct {
 	width  int
 	height int
 	window *glfw.Window
-	delta  float64 // millimeters (model units)
+	delta  float32 // millimeters (model units)
 	view   bool
 
 	program uint32
@@ -36,7 +36,7 @@ type Slicer struct {
 }
 
 // Init returns a new Slicer instance.
-func Init(view bool, micronsResolution float64) *Slicer {
+func Init(view bool, micronsResolution float32) *Slicer {
 	// TODO: Support units other than millimeters.
 	return &Slicer{delta: micronsResolution / 1000.0, view: view}
 }
@@ -70,7 +70,7 @@ func (s *Slicer) MaterialName(n int) string {
 }
 
 // MBB returns the MBB of the IRMF model.
-func (s *Slicer) MBB() (min, max [3]float64) {
+func (s *Slicer) MBB() (min, max [3]float32) {
 	if s.irmf != nil {
 		if len(s.irmf.Min) != 3 || len(s.irmf.Max) != 3 {
 			log.Fatalf("Bad IRMF model: min=%#v, max=%#v", s.irmf.Min, s.irmf.Max)
@@ -112,17 +112,17 @@ func (s *Slicer) createOrResizeWindow(width, height int) {
 
 // XSliceProcessor represents a X slice processor.
 type XSliceProcessor interface {
-	ProcessXSlice(sliceNum int, x, voxelRadius float64, img image.Image) error
+	ProcessXSlice(sliceNum int, x, voxelRadius float32, img image.Image) error
 }
 
 // YSliceProcessor represents a Y slice processor.
 type YSliceProcessor interface {
-	ProcessYSlice(sliceNum int, y, voxelRadius float64, img image.Image) error
+	ProcessYSlice(sliceNum int, y, voxelRadius float32, img image.Image) error
 }
 
 // ZSliceProcessor represents a Z slice processor.
 type ZSliceProcessor interface {
-	ProcessZSlice(sliceNum int, z, voxelRadius float64, img image.Image) error
+	ProcessZSlice(sliceNum int, z, voxelRadius float32, img image.Image) error
 }
 
 // Order represents the order of slice processing.
@@ -136,22 +136,28 @@ const (
 // RenderXSlices slices the given materialNum (1-based index)
 // to an image, calling the SliceProcessor for each slice.
 func (s *Slicer) RenderXSlices(materialNum int, sp XSliceProcessor, order Order) error {
-	var (
-		n     int
-		min   float64
-		while func(x float64) bool
-		delta float64
-	)
-
+	numSlices := int(0.5 + (s.irmf.Max[0]-s.irmf.Min[0])/s.delta)
 	voxelRadius := 0.5 * s.delta
+	minVal := s.irmf.Min[0] + voxelRadius
+
+	var xFunc func(n int) float32
+
 	switch order {
 	case MinToMax:
-		min, while, delta = s.irmf.Min[0]+voxelRadius, func(x float64) bool { return x <= s.irmf.Max[0] }, s.delta
+		xFunc = func(n int) float32 {
+			return minVal + float32(n)*s.delta
+		}
 	case MaxToMin:
-		min, while, delta = s.irmf.Max[0]-voxelRadius, func(x float64) bool { return x >= s.irmf.Min[0] }, -s.delta
+		xFunc = func(n int) float32 {
+			return minVal + float32(numSlices-n-1)*s.delta
+		}
 	}
 
-	for x := min; while(x); x += delta {
+	// log.Printf("RenderXSlices: numSlices=%v, startVal=%v, endVal=%v, delta=%v", numSlices, xFunc(0), xFunc(numSlices-1), s.delta)
+
+	for n := 0; n < numSlices; n++ {
+		x := xFunc(n)
+
 		img, err := s.renderSlice(x, materialNum)
 		if err != nil {
 			return fmt.Errorf("renderXSlice(%v,%v): %v", x, materialNum, err)
@@ -167,22 +173,28 @@ func (s *Slicer) RenderXSlices(materialNum int, sp XSliceProcessor, order Order)
 // RenderYSlices slices the given materialNum (1-based index)
 // to an image, calling the SliceProcessor for each slice.
 func (s *Slicer) RenderYSlices(materialNum int, sp YSliceProcessor, order Order) error {
-	var (
-		n     int
-		min   float64
-		while func(y float64) bool
-		delta float64
-	)
-
+	numSlices := int(0.5 + (s.irmf.Max[1]-s.irmf.Min[1])/s.delta)
 	voxelRadius := 0.5 * s.delta
+	minVal := s.irmf.Min[1] + voxelRadius
+
+	var yFunc func(n int) float32
+
 	switch order {
 	case MinToMax:
-		min, while, delta = s.irmf.Min[1]+voxelRadius, func(y float64) bool { return y <= s.irmf.Max[1] }, s.delta
+		yFunc = func(n int) float32 {
+			return minVal + float32(n)*s.delta
+		}
 	case MaxToMin:
-		min, while, delta = s.irmf.Max[1]-voxelRadius, func(y float64) bool { return y >= s.irmf.Min[1] }, -s.delta
+		yFunc = func(n int) float32 {
+			return minVal + float32(numSlices-n-1)*s.delta
+		}
 	}
 
-	for y := min; while(y); y += delta {
+	// log.Printf("RenderYSlices: numSlices=%v, startVal=%v, endVal=%v, delta=%v", numSlices, yFunc(0), yFunc(numSlices-1), s.delta)
+
+	for n := 0; n < numSlices; n++ {
+		y := yFunc(n)
+
 		img, err := s.renderSlice(y, materialNum)
 		if err != nil {
 			return fmt.Errorf("renderYSlice(%v,%v): %v", y, materialNum, err)
@@ -198,22 +210,28 @@ func (s *Slicer) RenderYSlices(materialNum int, sp YSliceProcessor, order Order)
 // RenderZSlices slices the given materialNum (1-based index)
 // to an image, calling the SliceProcessor for each slice.
 func (s *Slicer) RenderZSlices(materialNum int, sp ZSliceProcessor, order Order) error {
-	var (
-		n     int
-		min   float64
-		while func(z float64) bool
-		delta float64
-	)
-
+	numSlices := int(0.5 + (s.irmf.Max[2]-s.irmf.Min[2])/s.delta)
 	voxelRadius := 0.5 * s.delta
+	minVal := s.irmf.Min[2] + voxelRadius
+
+	var zFunc func(n int) float32
+
 	switch order {
 	case MinToMax:
-		min, while, delta = s.irmf.Min[2]+voxelRadius, func(z float64) bool { return z <= s.irmf.Max[2] }, s.delta
+		zFunc = func(n int) float32 {
+			return minVal + float32(n)*s.delta
+		}
 	case MaxToMin:
-		min, while, delta = s.irmf.Max[2]-voxelRadius, func(z float64) bool { return z >= s.irmf.Min[2] }, -s.delta
+		zFunc = func(n int) float32 {
+			return minVal + float32(numSlices-n-1)*s.delta
+		}
 	}
 
-	for z := min; while(z); z += delta {
+	// log.Printf("RenderZSlices: numSlices=%v, startVal=%v, endVal=%v, delta=%v", numSlices, zFunc(0), zFunc(numSlices-1), s.delta)
+
+	for n := 0; n < numSlices; n++ {
+		z := zFunc(n)
+
 		img, err := s.renderSlice(z, materialNum)
 		if err != nil {
 			return fmt.Errorf("renderZSlice(%v,%v): %v", z, materialNum, err)
@@ -226,7 +244,7 @@ func (s *Slicer) RenderZSlices(materialNum int, sp ZSliceProcessor, order Order)
 	return nil
 }
 
-func (s *Slicer) renderSlice(sliceDepth float64, materialNum int) (image.Image, error) {
+func (s *Slicer) renderSlice(sliceDepth float32, materialNum int) (image.Image, error) {
 	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
 	// Render

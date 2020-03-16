@@ -21,8 +21,8 @@ type IRMF struct {
 	Encoding  *string         `json:"encoding,omitempty"`
 	IRMF      string          `json:"irmf"`
 	Materials []string        `json:"materials"`
-	Max       []float64       `json:"max"`
-	Min       []float64       `json:"min"`
+	Max       []float32       `json:"max"`
+	Min       []float32       `json:"min"`
 	Notes     string          `json:"notes"`
 	Options   json.RawMessage `json:"options"`
 	Title     string          `json:"title"`

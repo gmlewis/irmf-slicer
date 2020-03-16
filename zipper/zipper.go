@@ -19,7 +19,7 @@ import (
 type Slicer interface {
 	NumMaterials() int
 	MaterialName(materialNum int) string // 1-based
-	MBB() (min, max [3]float64)          // in millimeters
+	MBB() (min, max [3]float32)          // in millimeters
 
 	PrepareRenderZ() error
 	RenderZSlices(materialNum int, sp irmf.ZSliceProcessor, order irmf.Order) error
@@ -73,7 +73,7 @@ type zipper struct {
 // zipper implements the ZSliceProcessor interface.
 var _ irmf.ZSliceProcessor = &zipper{}
 
-func (zp *zipper) ProcessZSlice(n int, z, voxelRadius float64, img image.Image) error {
+func (zp *zipper) ProcessZSlice(n int, z, voxelRadius float32, img image.Image) error {
 	filename := fmt.Sprintf("mat%02d-%v/out%04d.png", zp.materialNum, zp.materialName, n)
 	fh := &zip.FileHeader{
 		Name:     filename,
