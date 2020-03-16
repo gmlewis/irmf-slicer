@@ -40,15 +40,15 @@ func (fs *fakeSlicer) MBB() (min, max [3]float64) {
 }
 
 func (fs *fakeSlicer) PrepareRenderX() error { return nil }
-func (fs *fakeSlicer) RenderXSlices(materialNum int, sp irmf.SliceProcessor, order irmf.Order) error {
+func (fs *fakeSlicer) RenderXSlices(materialNum int, sp irmf.XSliceProcessor, order irmf.Order) error {
 	return nil
 }
 func (fs *fakeSlicer) PrepareRenderY() error { return nil }
-func (fs *fakeSlicer) RenderYSlices(materialNum int, sp irmf.SliceProcessor, order irmf.Order) error {
+func (fs *fakeSlicer) RenderYSlices(materialNum int, sp irmf.YSliceProcessor, order irmf.Order) error {
 	return nil
 }
 func (fs *fakeSlicer) PrepareRenderZ() error { return nil }
-func (fs *fakeSlicer) RenderZSlices(materialNum int, sp irmf.SliceProcessor, order irmf.Order) error {
+func (fs *fakeSlicer) RenderZSlices(materialNum int, sp irmf.ZSliceProcessor, order irmf.Order) error {
 	mbbMin, mbbMax := fs.MBB()
 	img := &fakeImage{fs: fs}
 
@@ -72,7 +72,7 @@ func (fs *fakeSlicer) RenderZSlices(materialNum int, sp irmf.SliceProcessor, ord
 
 	log.Printf("fakeSlicer.RenderZSlices: min=%v, delta=%v", min, delta)
 	for z := min; while(z); z += delta {
-		if err := sp.ProcessSlice(n, z, voxelRadius, img); err != nil {
+		if err := sp.ProcessZSlice(n, z, voxelRadius, img); err != nil {
 			return fmt.Errorf("ProcessSlice(%v,%v,%v): %v", n, z, voxelRadius, err)
 		}
 		n++

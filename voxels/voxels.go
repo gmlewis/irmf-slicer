@@ -4,6 +4,7 @@ package voxels
 import (
 	"fmt"
 	"image"
+	"log"
 	"strings"
 
 	"github.com/gmlewis/irmf-slicer/irmf"
@@ -18,11 +19,11 @@ type Slicer interface {
 	MBB() (min, max [3]float64)          // in millimeters
 
 	PrepareRenderX() error
-	RenderXSlices(materialNum int, sp irmf.SliceProcessor, order irmf.Order) error
+	RenderXSlices(materialNum int, sp irmf.XSliceProcessor, order irmf.Order) error
 	PrepareRenderY() error
-	RenderYSlices(materialNum int, sp irmf.SliceProcessor, order irmf.Order) error
+	RenderYSlices(materialNum int, sp irmf.YSliceProcessor, order irmf.Order) error
 	PrepareRenderZ() error
-	RenderZSlices(materialNum int, sp irmf.SliceProcessor, order irmf.Order) error
+	RenderZSlices(materialNum int, sp irmf.ZSliceProcessor, order irmf.Order) error
 }
 
 // Slice slices an IRMF model into one or more STL files (one per material).
@@ -38,17 +39,49 @@ func Slice(baseFilename string, slicer Slicer) error {
 
 		c := new(w, slicer)
 
+		if err := slicer.PrepareRenderX(); err != nil {
+			return fmt.Errorf("PrepareRenderX: %v", err)
+		}
+
+		log.Printf("Processing +X...")
+		c.newNormal(1, 0, 0)
+		if err := slicer.RenderXSlices(materialNum, c, irmf.MaxToMin); err != nil {
+			return fmt.Errorf("RenderXSlices: %v", err)
+		}
+
+		log.Printf("Processing -X...")
+		c.newNormal(-1, 0, 0)
+		if err := slicer.RenderXSlices(materialNum, c, irmf.MinToMax); err != nil {
+			return fmt.Errorf("RenderXSlices: %v", err)
+		}
+
+		if err := slicer.PrepareRenderY(); err != nil {
+			return fmt.Errorf("PrepareRenderY: %v", err)
+		}
+
+		log.Printf("Processing +Y...")
+		c.newNormal(0, 1, 0)
+		if err := slicer.RenderYSlices(materialNum, c, irmf.MaxToMin); err != nil {
+			return fmt.Errorf("RenderYSlices: %v", err)
+		}
+
+		log.Printf("Processing -Y...")
+		c.newNormal(0, -1, 0)
+		if err := slicer.RenderYSlices(materialNum, c, irmf.MinToMax); err != nil {
+			return fmt.Errorf("RenderYSlices: %v", err)
+		}
+
 		if err := slicer.PrepareRenderZ(); err != nil {
 			return fmt.Errorf("PrepareRenderZ: %v", err)
 		}
 
-		// Process +Z
+		log.Printf("Processing +Z...")
 		c.newNormal(0, 0, 1)
 		if err := slicer.RenderZSlices(materialNum, c, irmf.MaxToMin); err != nil {
 			return fmt.Errorf("RenderZSlices: %v", err)
 		}
 
-		// Process -Z
+		log.Printf("Processing -Z...")
 		c.newNormal(0, 0, -1)
 		if err := slicer.RenderZSlices(materialNum, c, irmf.MinToMax); err != nil {
 			return fmt.Errorf("RenderZSlices: %v", err)
@@ -87,8 +120,10 @@ type client struct {
 	depth float32
 }
 
-// client implements the SliceProcessor interface.
-var _ irmf.SliceProcessor = &client{}
+// client implements the *SliceProcessor interfaces.
+var _ irmf.XSliceProcessor = &client{}
+var _ irmf.YSliceProcessor = &client{}
+var _ irmf.ZSliceProcessor = &client{}
 
 // uvSlice represents a slice of voxels indexed by uv (integer) coordinates
 // where the depth value represents the third dimension of the current face.
@@ -112,7 +147,69 @@ func (c *client) newNormal(x, y, z float32) {
 	c.curSlice = nil
 }
 
-func (c *client) ProcessSlice(sliceNum int, z, voxelRadius float64, img image.Image) error {
+func (c *client) ProcessXSlice(sliceNum int, x, voxelRadius float64, img image.Image) error {
+	min, _ := c.slicer.MBB()
+	depth := float32(x) + c.n[0]*float32(voxelRadius)
+	vr := float32(voxelRadius)
+
+	wf := func(u, v int) error {
+		y := 2.0*vr*float32(u) + vr + float32(min[1])
+		z := 2.0*vr*float32(v) + vr + float32(min[2])
+
+		t := &stl.Tri{
+			N:  c.n,
+			V1: [3]float32{depth, y - vr, z - vr},
+			V2: [3]float32{depth, y + vr, z - vr},
+			V3: [3]float32{depth, y + vr, z + vr},
+		}
+		if err := c.w.Write(t); err != nil {
+			return err
+		}
+
+		t = &stl.Tri{
+			N:  c.n,
+			V1: [3]float32{depth, y - vr, z - vr},
+			V2: [3]float32{depth, y + vr, z + vr},
+			V3: [3]float32{depth, y - vr, z + vr},
+		}
+		return c.w.Write(t)
+	}
+
+	return c.newSlice(img, wf)
+}
+
+func (c *client) ProcessYSlice(sliceNum int, y, voxelRadius float64, img image.Image) error {
+	min, _ := c.slicer.MBB()
+	depth := float32(y) + c.n[1]*float32(voxelRadius)
+	vr := float32(voxelRadius)
+
+	wf := func(u, v int) error {
+		x := 2.0*vr*float32(u) + vr + float32(min[0])
+		z := 2.0*vr*float32(v) + vr + float32(min[2])
+
+		t := &stl.Tri{
+			N:  c.n,
+			V1: [3]float32{x - vr, depth, z - vr},
+			V2: [3]float32{x + vr, depth, z - vr},
+			V3: [3]float32{x + vr, depth, z + vr},
+		}
+		if err := c.w.Write(t); err != nil {
+			return err
+		}
+
+		t = &stl.Tri{
+			N:  c.n,
+			V1: [3]float32{x - vr, depth, z - vr},
+			V2: [3]float32{x + vr, depth, z + vr},
+			V3: [3]float32{x - vr, depth, z + vr},
+		}
+		return c.w.Write(t)
+	}
+
+	return c.newSlice(img, wf)
+}
+
+func (c *client) ProcessZSlice(sliceNum int, z, voxelRadius float64, img image.Image) error {
 	// log.Printf("voxels.ProcessSlice(sliceNum=%v, z=%v, voxelRadius=%v)", sliceNum, z, voxelRadius)
 
 	min, _ := c.slicer.MBB()

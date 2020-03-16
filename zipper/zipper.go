@@ -22,7 +22,7 @@ type Slicer interface {
 	MBB() (min, max [3]float64)          // in millimeters
 
 	PrepareRenderZ() error
-	RenderZSlices(materialNum int, sp irmf.SliceProcessor, order irmf.Order) error
+	RenderZSlices(materialNum int, sp irmf.ZSliceProcessor, order irmf.Order) error
 }
 
 // Slice slices an IRMF shader into a ZIP containing many voxel slices.
@@ -70,10 +70,10 @@ type zipper struct {
 	materialName string
 }
 
-// zipper implements the SliceProcessor interface.
-var _ irmf.SliceProcessor = &zipper{}
+// zipper implements the ZSliceProcessor interface.
+var _ irmf.ZSliceProcessor = &zipper{}
 
-func (zp *zipper) ProcessSlice(n int, z, voxelRadius float64, img image.Image) error {
+func (zp *zipper) ProcessZSlice(n int, z, voxelRadius float64, img image.Image) error {
 	filename := fmt.Sprintf("mat%02d-%v/out%04d.png", zp.materialNum, zp.materialName, n)
 	fh := &zip.FileHeader{
 		Name:     filename,

@@ -110,9 +110,19 @@ func (s *Slicer) createOrResizeWindow(width, height int) {
 	fmt.Println("OpenGL version", version)
 }
 
-// SliceProcessor represents a slice processor.
-type SliceProcessor interface {
-	ProcessSlice(sliceNum int, depth, voxelRadius float64, img image.Image) error
+// XSliceProcessor represents a X slice processor.
+type XSliceProcessor interface {
+	ProcessXSlice(sliceNum int, x, voxelRadius float64, img image.Image) error
+}
+
+// YSliceProcessor represents a Y slice processor.
+type YSliceProcessor interface {
+	ProcessYSlice(sliceNum int, y, voxelRadius float64, img image.Image) error
+}
+
+// ZSliceProcessor represents a Z slice processor.
+type ZSliceProcessor interface {
+	ProcessZSlice(sliceNum int, z, voxelRadius float64, img image.Image) error
 }
 
 // Order represents the order of slice processing.
@@ -125,7 +135,7 @@ const (
 
 // RenderXSlices slices the given materialNum (1-based index)
 // to an image, calling the SliceProcessor for each slice.
-func (s *Slicer) RenderXSlices(materialNum int, sp SliceProcessor, order Order) error {
+func (s *Slicer) RenderXSlices(materialNum int, sp XSliceProcessor, order Order) error {
 	var (
 		n     int
 		min   float64
@@ -146,7 +156,7 @@ func (s *Slicer) RenderXSlices(materialNum int, sp SliceProcessor, order Order) 
 		if err != nil {
 			return fmt.Errorf("renderXSlice(%v,%v): %v", x, materialNum, err)
 		}
-		if err := sp.ProcessSlice(n, x, voxelRadius, img); err != nil {
+		if err := sp.ProcessXSlice(n, x, voxelRadius, img); err != nil {
 			return fmt.Errorf("ProcessSlice(%v,%v,%v): %v", n, x, voxelRadius, err)
 		}
 		n++
@@ -156,7 +166,7 @@ func (s *Slicer) RenderXSlices(materialNum int, sp SliceProcessor, order Order) 
 
 // RenderYSlices slices the given materialNum (1-based index)
 // to an image, calling the SliceProcessor for each slice.
-func (s *Slicer) RenderYSlices(materialNum int, sp SliceProcessor, order Order) error {
+func (s *Slicer) RenderYSlices(materialNum int, sp YSliceProcessor, order Order) error {
 	var (
 		n     int
 		min   float64
@@ -177,7 +187,7 @@ func (s *Slicer) RenderYSlices(materialNum int, sp SliceProcessor, order Order) 
 		if err != nil {
 			return fmt.Errorf("renderYSlice(%v,%v): %v", y, materialNum, err)
 		}
-		if err := sp.ProcessSlice(n, y, voxelRadius, img); err != nil {
+		if err := sp.ProcessYSlice(n, y, voxelRadius, img); err != nil {
 			return fmt.Errorf("ProcessSlice(%v,%v,%v): %v", n, y, voxelRadius, err)
 		}
 		n++
@@ -187,7 +197,7 @@ func (s *Slicer) RenderYSlices(materialNum int, sp SliceProcessor, order Order) 
 
 // RenderZSlices slices the given materialNum (1-based index)
 // to an image, calling the SliceProcessor for each slice.
-func (s *Slicer) RenderZSlices(materialNum int, sp SliceProcessor, order Order) error {
+func (s *Slicer) RenderZSlices(materialNum int, sp ZSliceProcessor, order Order) error {
 	var (
 		n     int
 		min   float64
@@ -208,7 +218,7 @@ func (s *Slicer) RenderZSlices(materialNum int, sp SliceProcessor, order Order) 
 		if err != nil {
 			return fmt.Errorf("renderZSlice(%v,%v): %v", z, materialNum, err)
 		}
-		if err := sp.ProcessSlice(n, z, voxelRadius, img); err != nil {
+		if err := sp.ProcessZSlice(n, z, voxelRadius, img); err != nil {
 			return fmt.Errorf("ProcessSlice(%v,%v,%v): %v", n, z, voxelRadius, err)
 		}
 		n++
@@ -257,7 +267,13 @@ func (s *Slicer) PrepareRenderX() error {
 	top := float32(s.irmf.Max[2])
 	camera := mgl32.LookAtV(mgl32.Vec3{3, 0, 0}, mgl32.Vec3{0, 0, 0}, mgl32.Vec3{0, 0, 1})
 	vec3Str := "u_slice,fragVert.yz"
-	return s.prepareRender(left, right, bottom, top, camera, vec3Str)
+
+	xPlaneVertices[1], xPlaneVertices[11], xPlaneVertices[26] = left, left, left
+	xPlaneVertices[6], xPlaneVertices[16], xPlaneVertices[21] = right, right, right
+	xPlaneVertices[2], xPlaneVertices[7], xPlaneVertices[17] = bottom, bottom, bottom
+	xPlaneVertices[12], xPlaneVertices[22], xPlaneVertices[27] = top, top, top
+
+	return s.prepareRender(left, right, bottom, top, camera, vec3Str, xPlaneVertices)
 }
 
 // PrepareRenderY prepares the GPU to render along the Y axis.
@@ -268,7 +284,13 @@ func (s *Slicer) PrepareRenderY() error {
 	top := float32(s.irmf.Max[2])
 	camera := mgl32.LookAtV(mgl32.Vec3{0, -3, 0}, mgl32.Vec3{0, 0, 0}, mgl32.Vec3{0, 0, 1})
 	vec3Str := "fragVert.x,u_slice,fragVert.z"
-	return s.prepareRender(left, right, bottom, top, camera, vec3Str)
+
+	yPlaneVertices[0], yPlaneVertices[10], yPlaneVertices[25] = left, left, left
+	yPlaneVertices[5], yPlaneVertices[15], yPlaneVertices[20] = right, right, right
+	yPlaneVertices[2], yPlaneVertices[7], yPlaneVertices[17] = bottom, bottom, bottom
+	yPlaneVertices[12], yPlaneVertices[22], yPlaneVertices[27] = top, top, top
+
+	return s.prepareRender(left, right, bottom, top, camera, vec3Str, yPlaneVertices)
 }
 
 // PrepareRenderZ prepares the GPU to render along the Z axis.
@@ -279,10 +301,16 @@ func (s *Slicer) PrepareRenderZ() error {
 	top := float32(s.irmf.Max[1])
 	camera := mgl32.LookAtV(mgl32.Vec3{0, 0, 3}, mgl32.Vec3{0, 0, 0}, mgl32.Vec3{0, 1, 0})
 	vec3Str := "fragVert.xy,u_slice"
-	return s.prepareRender(left, right, bottom, top, camera, vec3Str)
+
+	zPlaneVertices[0], zPlaneVertices[10], zPlaneVertices[25] = left, left, left
+	zPlaneVertices[5], zPlaneVertices[15], zPlaneVertices[20] = right, right, right
+	zPlaneVertices[1], zPlaneVertices[6], zPlaneVertices[16] = bottom, bottom, bottom
+	zPlaneVertices[11], zPlaneVertices[21], zPlaneVertices[26] = top, top, top
+
+	return s.prepareRender(left, right, bottom, top, camera, vec3Str, zPlaneVertices)
 }
 
-func (s *Slicer) prepareRender(left, right, bottom, top float32, camera mgl32.Mat4, vec3Str string) error {
+func (s *Slicer) prepareRender(left, right, bottom, top float32, camera mgl32.Mat4, vec3Str string, planeVertices []float32) error {
 	// Create or resize window if necessary.
 	near, far := float32(0.1), float32(100.0)
 	aspectRatio := (right - left) / (top - bottom)
@@ -331,11 +359,6 @@ func (s *Slicer) prepareRender(left, right, bottom, top float32, camera mgl32.Ma
 	// Configure the vertex data
 	gl.GenVertexArrays(1, &s.vao)
 	gl.BindVertexArray(s.vao)
-
-	planeVertices[0], planeVertices[10], planeVertices[25] = left, left, left
-	planeVertices[5], planeVertices[15], planeVertices[20] = right, right, right
-	planeVertices[1], planeVertices[6], planeVertices[16] = bottom, bottom, bottom
-	planeVertices[11], planeVertices[21], planeVertices[26] = top, top, top
 
 	var vbo uint32
 	gl.GenBuffers(1, &vbo)
@@ -433,7 +456,27 @@ uniform float u_slice;
 uniform int u_materialNum;
 `
 
-var planeVertices = []float32{
+var xPlaneVertices = []float32{
+	//  X, Y, Z, U, V
+	0.0, -1.0, -1.0, 1.0, 0.0, // ll
+	0.0, 1.0, -1.0, 0.0, 0.0, // lr
+	0.0, -1.0, 1.0, 1.0, 1.0, // ul
+	0.0, 1.0, -1.0, 0.0, 0.0, // lr
+	0.0, 1.0, 1.0, 0.0, 1.0, // ur
+	0.0, -1.0, 1.0, 1.0, 1.0, // ul
+}
+
+var yPlaneVertices = []float32{
+	//  X, Y, Z, U, V
+	-1.0, 0.0, -1.0, 1.0, 0.0, // ll
+	1.0, 0.0, -1.0, 0.0, 0.0, // lr
+	-1.0, 0.0, 1.0, 1.0, 1.0, // ul
+	1.0, 0.0, -1.0, 0.0, 0.0, // lr
+	1.0, 0.0, 1.0, 0.0, 1.0, // ur
+	-1.0, 0.0, 1.0, 1.0, 1.0, // ul
+}
+
+var zPlaneVertices = []float32{
 	//  X, Y, Z, U, V
 	-1.0, -1.0, 0.0, 1.0, 0.0, // ll
 	1.0, -1.0, 0.0, 0.0, 0.0, // lr
