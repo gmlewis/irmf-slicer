@@ -26,9 +26,14 @@ The technology stack used is Go and OpenGL.
 
 This program is needed to bridge the gap until 3D printer manufacturers
 adopt IRMF shaders and printable file formats in addition to G-Code
-or voxel slices. It slices an IRMF shader model into voxel slices and
-writes out one ZIP file (per IRMF shader model file) containing these
-slices. These slices can then be fed to 3D printer software that accepts
+or voxel slices. It slices an IRMF shader model into either STL files
+or into voxel slices. For STL files, it outputs one STL file per material.
+(Note that some STL files can become enormous, way larger than any online
+service bureau currently supports. The resolution can be reduced to limit
+the STL file sizes, but at the expense of lossed detail.)
+
+For voxel slices, it writes them out to one ZIP file (per IRMF shader model file).
+These slices can then be fed to 3D printer software that accepts
 voxel slices as input for printing.
 
 Once 3D printers support IRMF shader model files directly for printing,
@@ -59,7 +64,7 @@ To slice one or more `.irmf` files, just list them on the command line,
 like this:
 
 ```sh
-$ irmf-slicer examples/*/*.irmf
+$ irmf-slicer -view -stl examples/*/*.irmf
 ```
 
 ## How does it work?
@@ -68,8 +73,10 @@ This slicer dices up your model (the IRMF shader) into slices (planes)
 that are perpendicular (normal) to the Z (up) axis. The slices are very
 thin and when stacked together, represent your solid model.
 
-The result is a ZIP file with all the slices in separate sub-folders
-named by the unique names of the materials.
+Using the `-zip` option, the result is a ZIP file with all the slices in
+separate sub-folders named by the unique names of the materials.
+
+Using the `-stl` option, the result is one STL file per model material.
 
 ## Why do I get a `Slice: compile shader` error?
 
