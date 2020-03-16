@@ -43,6 +43,7 @@ func main() {
 			continue
 		}
 
+		dirName := filepath.Dir(arg)
 		log.Printf("Processing IRMF shader %q...", filepath.Base(arg))
 		buf, err := ioutil.ReadFile(arg)
 		check("ReadFile: %v", err)
@@ -54,12 +55,12 @@ func main() {
 
 		if *writeSTL {
 			log.Printf("Slicing %v materials into separate STL files...", slicer.NumMaterials())
-			err = voxels.Slice(baseName, slicer)
+			err = voxels.Slice(filepath.Join(dirName, baseName), slicer)
 			check("voxels.Slice: %v", err)
 		}
 
 		if *writeZip {
-			zipName := baseName + ".irmf.zip"
+			zipName := filepath.Join(dirName, baseName+".irmf.zip")
 			log.Printf("Slicing %v materials into file %q...", slicer.NumMaterials(), zipName)
 			err = zipper.Slice(zipName, slicer)
 			check("zipper.Slice: %v", err)
