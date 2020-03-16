@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	microns  = flag.Float64("res", 62.5, "Resolution in microns")
+	microns  = flag.Float64("res", 42.0, "Resolution in microns")
 	view     = flag.Bool("view", false, "Render slicing to window")
 	writeSTL = flag.Bool("stl", false, "Write stl files, one per material")
 	writeZip = flag.Bool("zip", false, "Write slices to zip file")
