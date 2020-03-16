@@ -165,7 +165,6 @@ func (s *Slicer) RenderXSlices(materialNum int, sp XSliceProcessor, order Order)
 		if err := sp.ProcessXSlice(n, x, voxelRadius, img); err != nil {
 			return fmt.Errorf("ProcessSlice(%v,%v,%v): %v", n, x, voxelRadius, err)
 		}
-		n++
 	}
 	return nil
 }
@@ -202,7 +201,6 @@ func (s *Slicer) RenderYSlices(materialNum int, sp YSliceProcessor, order Order)
 		if err := sp.ProcessYSlice(n, y, voxelRadius, img); err != nil {
 			return fmt.Errorf("ProcessSlice(%v,%v,%v): %v", n, y, voxelRadius, err)
 		}
-		n++
 	}
 	return nil
 }
@@ -239,7 +237,6 @@ func (s *Slicer) RenderZSlices(materialNum int, sp ZSliceProcessor, order Order)
 		if err := sp.ProcessZSlice(n, z, voxelRadius, img); err != nil {
 			return fmt.Errorf("ProcessSlice(%v,%v,%v): %v", n, z, voxelRadius, err)
 		}
-		n++
 	}
 	return nil
 }

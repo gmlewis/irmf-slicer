@@ -18,10 +18,10 @@ type Slicer interface {
 	MaterialName(materialNum int) string // 1-based
 	MBB() (min, max [3]float32)          // in millimeters
 
-	PrepareRenderX() error
-	RenderXSlices(materialNum int, sp irmf.XSliceProcessor, order irmf.Order) error
-	PrepareRenderY() error
-	RenderYSlices(materialNum int, sp irmf.YSliceProcessor, order irmf.Order) error
+	// PrepareRenderX() error
+	// RenderXSlices(materialNum int, sp irmf.XSliceProcessor, order irmf.Order) error
+	// PrepareRenderY() error
+	// RenderYSlices(materialNum int, sp irmf.YSliceProcessor, order irmf.Order) error
 	PrepareRenderZ() error
 	RenderZSlices(materialNum int, sp irmf.ZSliceProcessor, order irmf.Order) error
 }
@@ -75,7 +75,7 @@ func Slice(baseFilename string, slicer Slicer) error {
 			return fmt.Errorf("PrepareRenderZ: %v", err)
 		}
 
-		log.Printf("Processing +Z...")
+		log.Printf("Processing +Z, +X, -X, +Y, -Y...")
 		c.newNormal(0, 0, 1)
 		if err := slicer.RenderZSlices(materialNum, c, irmf.MaxToMin); err != nil {
 			return fmt.Errorf("RenderZSlices: %v", err)
@@ -121,8 +121,8 @@ type client struct {
 }
 
 // client implements the *SliceProcessor interfaces.
-var _ irmf.XSliceProcessor = &client{}
-var _ irmf.YSliceProcessor = &client{}
+// var _ irmf.XSliceProcessor = &client{}
+// var _ irmf.YSliceProcessor = &client{}
 var _ irmf.ZSliceProcessor = &client{}
 
 // uvSlice represents a slice of voxels indexed by uv (integer) coordinates
@@ -147,6 +147,7 @@ func (c *client) newNormal(x, y, z float32) {
 	c.curSlice = nil
 }
 
+/*
 func (c *client) ProcessXSlice(sliceNum int, x, voxelRadius float32, img image.Image) error {
 	debug := false // x <= 2.0*voxelRadius
 	if debug {
@@ -228,25 +229,78 @@ func (c *client) ProcessYSlice(sliceNum int, y, voxelRadius float32, img image.I
 
 	return c.newSlice(img, wf)
 }
+*/
 
 func (c *client) ProcessZSlice(sliceNum int, z, voxelRadius float32, img image.Image) error {
-	debug := false // z <= 2.0*voxelRadius
-	if debug {
-		log.Printf("voxels.ProcessZSlice(sliceNum=%v, z=%v, voxelRadius=%v)", sliceNum, z, voxelRadius)
-	}
-
 	min, _ := c.slicer.MBB()
 	depth := float32(z) + c.n[2]*float32(voxelRadius)
 	vr := float32(voxelRadius)
 	vr2 := float32(2.0 * voxelRadius)
 
-	wf := func(u, v int) error {
+	log.Printf("voxels.ProcessZSlice(sliceNum=%v, z=%v, voxelRadius=%v), depth=%v, vr2=%v", sliceNum, z, voxelRadius, depth, vr2)
+
+	var xpwf, xmwf, ypwf, ymwf writeFunc
+	if c.n[2] > 0 { // Also process +X, -X, +Y, and -Y.
+		xpwf = func(u, v int) error {
+			x := vr2*float32(u) + vr + float32(min[0])
+			y := vr2*float32(v) + vr + float32(min[1])
+			n := [3]float32{1, 0, 0}
+			v1 := [3]float32{x + vr, y - vr, depth - vr2}
+			v3 := [3]float32{x + vr, y + vr, depth}
+			t := &stl.Tri{N: n, V1: v1, V2: [3]float32{x + vr, y + vr, depth - vr2}, V3: v3}
+			if err := c.w.Write(t); err != nil {
+				return err
+			}
+			t = &stl.Tri{N: n, V1: v1, V2: v3, V3: [3]float32{x + vr, y - vr, depth}}
+			return c.w.Write(t)
+		}
+
+		xmwf = func(u, v int) error {
+			x := vr2*float32(u) + vr + float32(min[0])
+			y := vr2*float32(v) + vr + float32(min[1])
+			n := [3]float32{-1, 0, 0}
+			v1 := [3]float32{x - vr, y + vr, depth}
+			v3 := [3]float32{x - vr, y - vr, depth - vr2}
+			t := &stl.Tri{N: n, V1: v1, V2: [3]float32{x - vr, y + vr, depth - vr2}, V3: v3}
+			if err := c.w.Write(t); err != nil {
+				return err
+			}
+			t = &stl.Tri{N: n, V1: v1, V2: v3, V3: [3]float32{x - vr, y - vr, depth}}
+			return c.w.Write(t)
+		}
+
+		ypwf = func(u, v int) error {
+			x := vr2*float32(u) + vr + float32(min[0])
+			y := vr2*float32(v) + vr + float32(min[1])
+			n := [3]float32{0, 1, 0}
+			v1 := [3]float32{x + vr, y + vr, depth - vr2}
+			v3 := [3]float32{x - vr, y + vr, depth}
+			t := &stl.Tri{N: n, V1: v1, V2: [3]float32{x - vr, y + vr, depth - vr2}, V3: v3}
+			if err := c.w.Write(t); err != nil {
+				return err
+			}
+			t = &stl.Tri{N: n, V1: v1, V2: v3, V3: [3]float32{x + vr, y + vr, depth}}
+			return c.w.Write(t)
+		}
+
+		ymwf = func(u, v int) error {
+			x := vr2*float32(u) + vr + float32(min[0])
+			y := vr2*float32(v) + vr + float32(min[1])
+			n := [3]float32{0, -1, 0}
+			v1 := [3]float32{x - vr, y - vr, depth}
+			v3 := [3]float32{x + vr, y - vr, depth - vr2}
+			t := &stl.Tri{N: n, V1: v1, V2: [3]float32{x - vr, y - vr, depth - vr2}, V3: v3}
+			if err := c.w.Write(t); err != nil {
+				return err
+			}
+			t = &stl.Tri{N: n, V1: v1, V2: v3, V3: [3]float32{x + vr, y - vr, depth}}
+			return c.w.Write(t)
+		}
+	}
+
+	zwf := func(u, v int) error {
 		x := vr2*float32(u) + vr + float32(min[0])
 		y := vr2*float32(v) + vr + float32(min[1])
-
-		if u == 0 && v == 0 && debug {
-			log.Printf("z writeFunc(%v,%v): (%v,%v,%v)-(%v,%v,%v)", u, v, x-vr, y-vr, depth, x+vr, y+vr, depth)
-		}
 
 		n := [3]float32{c.n[0], c.n[1], c.n[2]}
 		v1 := [3]float32{x - vr, y - vr, depth}
@@ -255,32 +309,22 @@ func (c *client) ProcessZSlice(sliceNum int, z, voxelRadius float32, img image.I
 			v1, v3 = v3, v1
 		}
 
-		t := &stl.Tri{
-			N:  n,
-			V1: v1,
-			V2: [3]float32{x + vr, y - vr, depth},
-			V3: v3,
-		}
+		t := &stl.Tri{N: n, V1: v1, V2: [3]float32{x + vr, y - vr, depth}, V3: v3}
 		if err := c.w.Write(t); err != nil {
 			return err
 		}
 
-		t = &stl.Tri{
-			N:  n,
-			V1: v1,
-			V2: v3,
-			V3: [3]float32{x - vr, y + vr, depth},
-		}
+		t = &stl.Tri{N: n, V1: v1, V2: v3, V3: [3]float32{x - vr, y + vr, depth}}
 		return c.w.Write(t)
 	}
 
-	return c.newSlice(img, wf)
+	return c.newSlice(img, xpwf, xmwf, ypwf, ymwf, zwf)
 }
 
 type writeFunc func(u, v int) error
 
 // newSlice processes a new slice of voxels with the given writeFunc.
-func (c *client) newSlice(img image.Image, wf writeFunc) error {
+func (c *client) newSlice(img image.Image, xpwf, xmwf, ypwf, ymwf, zwf writeFunc) error {
 	b := img.Bounds()
 
 	// log.Printf("newSlice: img: %v", b)
@@ -295,10 +339,18 @@ func (c *client) newSlice(img image.Image, wf writeFunc) error {
 	}
 
 	for v := b.Min.Y; v < b.Max.Y; v++ {
+		var xmDone bool
 		for u := b.Min.X; u < b.Max.X; u++ {
 			color := img.At(u, v)
 			if r, _, _, _ := color.RGBA(); r == 0 {
 				continue
+			}
+
+			if xmwf != nil && !xmDone {
+				if err := xmwf(u, v); err != nil {
+					return err
+				}
+				xmDone = true
 			}
 
 			key := genKey(u, v)
@@ -309,8 +361,50 @@ func (c *client) newSlice(img image.Image, wf writeFunc) error {
 				}
 			}
 
-			if err := wf(u, v); err != nil {
+			if err := zwf(u, v); err != nil {
 				return err
+			}
+		}
+
+		if xpwf != nil {
+			for u := b.Max.X - 1; u >= b.Min.X; u-- {
+				color := img.At(u, v)
+				if r, _, _, _ := color.RGBA(); r == 0 {
+					continue
+				}
+
+				if err := xpwf(u, v); err != nil {
+					return err
+				}
+				break
+			}
+		}
+	}
+
+	if ypwf != nil && ymwf != nil {
+		for u := b.Min.X; u < b.Max.X; u++ {
+			for v := b.Min.Y; v < b.Max.Y; v++ {
+				color := img.At(u, v)
+				if r, _, _, _ := color.RGBA(); r == 0 {
+					continue
+				}
+
+				if err := ymwf(u, v); err != nil {
+					return err
+				}
+				break
+			}
+
+			for v := b.Max.Y - 1; v >= b.Min.Y; v-- {
+				color := img.At(u, v)
+				if r, _, _, _ := color.RGBA(); r == 0 {
+					continue
+				}
+
+				if err := ypwf(u, v); err != nil {
+					return err
+				}
+				break
 			}
 		}
 	}
