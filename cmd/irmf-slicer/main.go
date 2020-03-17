@@ -44,7 +44,7 @@ func main() {
 		}
 
 		dirName := filepath.Dir(arg)
-		log.Printf("Processing IRMF shader %q...", filepath.Base(arg))
+		log.Printf("Processing IRMF shader %q...", arg)
 		buf, err := ioutil.ReadFile(arg)
 		check("ReadFile: %v", err)
 
