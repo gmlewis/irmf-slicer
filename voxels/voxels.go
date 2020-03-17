@@ -39,38 +39,6 @@ func Slice(baseFilename string, slicer Slicer) error {
 
 		c := new(w, slicer)
 
-		// if err := slicer.PrepareRenderX(); err != nil {
-		// 	return fmt.Errorf("PrepareRenderX: %v", err)
-		// }
-		//
-		// log.Printf("Processing +X...")
-		// c.newNormal(1, 0, 0)
-		// if err := slicer.RenderXSlices(materialNum, c, irmf.MaxToMin); err != nil {
-		// 	return fmt.Errorf("RenderXSlices: %v", err)
-		// }
-		//
-		// log.Printf("Processing -X...")
-		// c.newNormal(-1, 0, 0)
-		// if err := slicer.RenderXSlices(materialNum, c, irmf.MinToMax); err != nil {
-		// 	return fmt.Errorf("RenderXSlices: %v", err)
-		// }
-
-		// if err := slicer.PrepareRenderY(); err != nil {
-		// 	return fmt.Errorf("PrepareRenderY: %v", err)
-		// }
-		//
-		// log.Printf("Processing +Y...")
-		// c.newNormal(0, 1, 0)
-		// if err := slicer.RenderYSlices(materialNum, c, irmf.MaxToMin); err != nil {
-		// 	return fmt.Errorf("RenderYSlices: %v", err)
-		// }
-		//
-		// log.Printf("Processing -Y...")
-		// c.newNormal(0, -1, 0)
-		// if err := slicer.RenderYSlices(materialNum, c, irmf.MinToMax); err != nil {
-		// 	return fmt.Errorf("RenderYSlices: %v", err)
-		// }
-
 		if err := slicer.PrepareRenderZ(); err != nil {
 			return fmt.Errorf("PrepareRenderZ: %v", err)
 		}
@@ -120,9 +88,7 @@ type client struct {
 	depth float32
 }
 
-// client implements the *SliceProcessor interfaces.
-// var _ irmf.XSliceProcessor = &client{}
-// var _ irmf.YSliceProcessor = &client{}
+// client implements the ZSliceProcessor interface.
 var _ irmf.ZSliceProcessor = &client{}
 
 // uvSlice represents a slice of voxels indexed by uv (integer) coordinates
@@ -146,90 +112,6 @@ func (c *client) newNormal(x, y, z float32) {
 	c.lastSlice = nil
 	c.curSlice = nil
 }
-
-/*
-func (c *client) ProcessXSlice(sliceNum int, x, voxelRadius float32, img image.Image) error {
-	debug := false // x <= 2.0*voxelRadius
-	if debug {
-		log.Printf("voxels.ProcessXSlice(sliceNum=%v, x=%v, voxelRadius=%v)", sliceNum, x, voxelRadius)
-	}
-
-	min, _ := c.slicer.MBB()
-	depth := float32(x) + c.n[0]*float32(voxelRadius)
-	vr := float32(voxelRadius)
-	vr2 := float32(2.0 * voxelRadius)
-
-	wf := func(u, v int) error {
-		y := vr2*float32(u) + vr + float32(min[1])
-		z := vr2*float32(v) + vr + float32(min[2])
-
-		if u == 0 && v == 0 && debug {
-			log.Printf("x writeFunc(%v,%v): (%v,%v,%v)-(%v,%v,%v)", u, v, depth, y-vr, z-vr, depth, y+vr, z+vr)
-		}
-
-		t := &stl.Tri{
-			N:  [3]float32{c.n[0], c.n[1], c.n[2]},
-			V1: [3]float32{depth, y - vr, z - vr},
-			V2: [3]float32{depth, y + vr, z - vr},
-			V3: [3]float32{depth, y + vr, z + vr},
-		}
-		if err := c.w.Write(t); err != nil {
-			return err
-		}
-
-		t = &stl.Tri{
-			N:  [3]float32{c.n[0], c.n[1], c.n[2]},
-			V1: [3]float32{depth, y - vr, z - vr},
-			V2: [3]float32{depth, y + vr, z + vr},
-			V3: [3]float32{depth, y - vr, z + vr},
-		}
-		return c.w.Write(t)
-	}
-
-	return c.newSlice(img, wf)
-}
-
-func (c *client) ProcessYSlice(sliceNum int, y, voxelRadius float32, img image.Image) error {
-	debug := false // y <= 2.0*voxelRadius
-	if debug {
-		log.Printf("voxels.ProcessYSlice(sliceNum=%v, y=%v, voxelRadius=%v)", sliceNum, y, voxelRadius)
-	}
-
-	min, _ := c.slicer.MBB()
-	depth := float32(y) + c.n[1]*float32(voxelRadius)
-	vr := float32(voxelRadius)
-	vr2 := float32(2.0 * voxelRadius)
-
-	wf := func(u, v int) error {
-		x := vr2*float32(u) + vr + float32(min[0])
-		z := vr2*float32(v) + vr + float32(min[2])
-
-		if u == 0 && v == 0 && debug {
-			log.Printf("y writeFunc(%v,%v): (%v,%v,%v)-(%v,%v,%v)", u, v, x-vr, depth, z-vr, x+vr, depth, z+vr)
-		}
-
-		t := &stl.Tri{
-			N:  [3]float32{c.n[0], c.n[1], c.n[2]},
-			V1: [3]float32{x - vr, depth, z - vr},
-			V2: [3]float32{x + vr, depth, z - vr},
-			V3: [3]float32{x + vr, depth, z + vr},
-		}
-		if err := c.w.Write(t); err != nil {
-			return err
-		}
-
-		t = &stl.Tri{
-			N:  [3]float32{c.n[0], c.n[1], c.n[2]},
-			V1: [3]float32{x - vr, depth, z - vr},
-			V2: [3]float32{x + vr, depth, z + vr},
-			V3: [3]float32{x - vr, depth, z + vr},
-		}
-		return c.w.Write(t)
-	}
-
-	return c.newSlice(img, wf)
-}
-*/
 
 func (c *client) ProcessZSlice(sliceNum int, z, voxelRadius float32, img image.Image) error {
 	min, _ := c.slicer.MBB()
@@ -339,18 +221,19 @@ func (c *client) newSlice(img image.Image, xpwf, xmwf, ypwf, ymwf, zwf writeFunc
 	}
 
 	for v := b.Min.Y; v < b.Max.Y; v++ {
-		var xmDone bool
+		var xmInside bool
 		for u := b.Min.X; u < b.Max.X; u++ {
 			color := img.At(u, v)
 			if r, _, _, _ := color.RGBA(); r == 0 {
+				xmInside = false
 				continue
 			}
 
-			if xmwf != nil && !xmDone {
+			if xmwf != nil && !xmInside {
 				if err := xmwf(u, v); err != nil {
 					return err
 				}
-				xmDone = true
+				xmInside = true
 			}
 
 			key := genKey(u, v)
@@ -367,44 +250,58 @@ func (c *client) newSlice(img image.Image, xpwf, xmwf, ypwf, ymwf, zwf writeFunc
 		}
 
 		if xpwf != nil {
+			var xpInside bool
 			for u := b.Max.X - 1; u >= b.Min.X; u-- {
 				color := img.At(u, v)
 				if r, _, _, _ := color.RGBA(); r == 0 {
+					xpInside = false
 					continue
 				}
 
-				if err := xpwf(u, v); err != nil {
-					return err
+				if !xpInside {
+					if err := xpwf(u, v); err != nil {
+						return err
+					}
+					xpInside = true
 				}
-				break
 			}
 		}
 	}
 
 	if ypwf != nil && ymwf != nil {
 		for u := b.Min.X; u < b.Max.X; u++ {
-			for v := b.Min.Y; v < b.Max.Y; v++ {
-				color := img.At(u, v)
-				if r, _, _, _ := color.RGBA(); r == 0 {
-					continue
-				}
+			{
+				var ymInside bool
+				for v := b.Min.Y; v < b.Max.Y; v++ {
+					color := img.At(u, v)
+					if r, _, _, _ := color.RGBA(); r == 0 {
+						ymInside = false
+						continue
+					}
 
-				if err := ymwf(u, v); err != nil {
-					return err
+					if !ymInside {
+						if err := ymwf(u, v); err != nil {
+							return err
+						}
+						ymInside = true
+					}
 				}
-				break
 			}
 
+			var ypInside bool
 			for v := b.Max.Y - 1; v >= b.Min.Y; v-- {
 				color := img.At(u, v)
 				if r, _, _, _ := color.RGBA(); r == 0 {
+					ypInside = false
 					continue
 				}
 
-				if err := ypwf(u, v); err != nil {
-					return err
+				if !ypInside {
+					if err := ypwf(u, v); err != nil {
+						return err
+					}
+					ypInside = true
 				}
-				break
 			}
 		}
 	}
