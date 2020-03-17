@@ -4,6 +4,9 @@
 // It then writes a ZIP of the slices or an STL file for each of
 // the materials, or both.
 //
+// By default, irmf-slicer tests IRMF shader compilation only.
+// To generate output, at least one of -stl or -zip must be supplied.
+//
 // See https://github.com/gmlewis/irmf for more information about IRMF.
 package main
 
@@ -30,8 +33,7 @@ func main() {
 	flag.Parse()
 
 	if !*writeSTL && !*writeZip {
-		flag.Usage()
-		log.Fatalf("Must use -stl or -zip or both")
+		log.Printf("-stl or -zip must be supplied to generate output. Testing IRMF shader compilation only.")
 	}
 
 	slicer := irmf.Init(*view, float32(*microns))
@@ -49,7 +51,7 @@ func main() {
 		check("ReadFile: %v", err)
 
 		err = slicer.NewModel(buf)
-		check("slicer.New: %v", err)
+		check("%v: %v", arg, err)
 
 		baseName := strings.TrimSuffix(filepath.Base(arg), ".irmf")
 
