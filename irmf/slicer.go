@@ -23,7 +23,9 @@ type Slicer struct {
 	width  int
 	height int
 	window *glfw.Window
-	delta  float32 // millimeters (model units)
+	deltaX float32 // millimeters (model units)
+	deltaY float32
+	deltaZ float32
 	view   bool
 
 	program uint32
@@ -36,9 +38,9 @@ type Slicer struct {
 }
 
 // Init returns a new Slicer instance.
-func Init(view bool, micronsResolution float32) *Slicer {
+func Init(view bool, umXRes, umYRes, umZRes float32) *Slicer {
 	// TODO: Support units other than millimeters.
-	return &Slicer{delta: micronsResolution / 1000.0, view: view}
+	return &Slicer{deltaX: umXRes / 1000.0, deltaY: umYRes / 1000.0, deltaZ: umZRes / 1000.0, view: view}
 }
 
 // NewModel prepares the slicer to slice a new shader model.
@@ -136,20 +138,20 @@ const (
 // RenderXSlices slices the given materialNum (1-based index)
 // to an image, calling the SliceProcessor for each slice.
 func (s *Slicer) RenderXSlices(materialNum int, sp XSliceProcessor, order Order) error {
-	numSlices := int(0.5 + (s.irmf.Max[0]-s.irmf.Min[0])/s.delta)
-	voxelRadius := 0.5 * s.delta
-	minVal := s.irmf.Min[0] + voxelRadius
+	numSlices := int(0.5 + (s.irmf.Max[0]-s.irmf.Min[0])/s.deltaX)
+	voxelRadiusX := 0.5 * s.deltaX
+	minVal := s.irmf.Min[0] + voxelRadiusX
 
 	var xFunc func(n int) float32
 
 	switch order {
 	case MinToMax:
 		xFunc = func(n int) float32 {
-			return minVal + float32(n)*s.delta
+			return minVal + float32(n)*s.deltaX
 		}
 	case MaxToMin:
 		xFunc = func(n int) float32 {
-			return minVal + float32(numSlices-n-1)*s.delta
+			return minVal + float32(numSlices-n-1)*s.deltaX
 		}
 	}
 
@@ -162,8 +164,8 @@ func (s *Slicer) RenderXSlices(materialNum int, sp XSliceProcessor, order Order)
 		if err != nil {
 			return fmt.Errorf("renderXSlice(%v,%v): %v", x, materialNum, err)
 		}
-		if err := sp.ProcessXSlice(n, x, voxelRadius, img); err != nil {
-			return fmt.Errorf("ProcessSlice(%v,%v,%v): %v", n, x, voxelRadius, err)
+		if err := sp.ProcessXSlice(n, x, voxelRadiusX, img); err != nil {
+			return fmt.Errorf("ProcessSlice(%v,%v,%v): %v", n, x, voxelRadiusX, err)
 		}
 	}
 	return nil
@@ -172,20 +174,20 @@ func (s *Slicer) RenderXSlices(materialNum int, sp XSliceProcessor, order Order)
 // RenderYSlices slices the given materialNum (1-based index)
 // to an image, calling the SliceProcessor for each slice.
 func (s *Slicer) RenderYSlices(materialNum int, sp YSliceProcessor, order Order) error {
-	numSlices := int(0.5 + (s.irmf.Max[1]-s.irmf.Min[1])/s.delta)
-	voxelRadius := 0.5 * s.delta
-	minVal := s.irmf.Min[1] + voxelRadius
+	numSlices := int(0.5 + (s.irmf.Max[1]-s.irmf.Min[1])/s.deltaY)
+	voxelRadiusY := 0.5 * s.deltaY
+	minVal := s.irmf.Min[1] + voxelRadiusY
 
 	var yFunc func(n int) float32
 
 	switch order {
 	case MinToMax:
 		yFunc = func(n int) float32 {
-			return minVal + float32(n)*s.delta
+			return minVal + float32(n)*s.deltaY
 		}
 	case MaxToMin:
 		yFunc = func(n int) float32 {
-			return minVal + float32(numSlices-n-1)*s.delta
+			return minVal + float32(numSlices-n-1)*s.deltaY
 		}
 	}
 
@@ -198,8 +200,8 @@ func (s *Slicer) RenderYSlices(materialNum int, sp YSliceProcessor, order Order)
 		if err != nil {
 			return fmt.Errorf("renderYSlice(%v,%v): %v", y, materialNum, err)
 		}
-		if err := sp.ProcessYSlice(n, y, voxelRadius, img); err != nil {
-			return fmt.Errorf("ProcessSlice(%v,%v,%v): %v", n, y, voxelRadius, err)
+		if err := sp.ProcessYSlice(n, y, voxelRadiusY, img); err != nil {
+			return fmt.Errorf("ProcessSlice(%v,%v,%v): %v", n, y, voxelRadiusY, err)
 		}
 	}
 	return nil
@@ -208,20 +210,20 @@ func (s *Slicer) RenderYSlices(materialNum int, sp YSliceProcessor, order Order)
 // RenderZSlices slices the given materialNum (1-based index)
 // to an image, calling the SliceProcessor for each slice.
 func (s *Slicer) RenderZSlices(materialNum int, sp ZSliceProcessor, order Order) error {
-	numSlices := int(0.5 + (s.irmf.Max[2]-s.irmf.Min[2])/s.delta)
-	voxelRadius := 0.5 * s.delta
-	minVal := s.irmf.Min[2] + voxelRadius
+	numSlices := int(0.5 + (s.irmf.Max[2]-s.irmf.Min[2])/s.deltaZ)
+	voxelRadiusZ := 0.5 * s.deltaZ
+	minVal := s.irmf.Min[2] + voxelRadiusZ
 
 	var zFunc func(n int) float32
 
 	switch order {
 	case MinToMax:
 		zFunc = func(n int) float32 {
-			return minVal + float32(n)*s.delta
+			return minVal + float32(n)*s.deltaZ
 		}
 	case MaxToMin:
 		zFunc = func(n int) float32 {
-			return minVal + float32(numSlices-n-1)*s.delta
+			return minVal + float32(numSlices-n-1)*s.deltaZ
 		}
 	}
 
@@ -234,8 +236,8 @@ func (s *Slicer) RenderZSlices(materialNum int, sp ZSliceProcessor, order Order)
 		if err != nil {
 			return fmt.Errorf("renderZSlice(%v,%v): %v", z, materialNum, err)
 		}
-		if err := sp.ProcessZSlice(n, z, voxelRadius, img); err != nil {
-			return fmt.Errorf("ProcessSlice(%v,%v,%v): %v", n, z, voxelRadius, err)
+		if err := sp.ProcessZSlice(n, z, voxelRadiusZ, img); err != nil {
+			return fmt.Errorf("ProcessSlice(%v,%v,%v): %v", n, z, voxelRadiusZ, err)
 		}
 	}
 	return nil
@@ -288,7 +290,15 @@ func (s *Slicer) PrepareRenderX() error {
 	xPlaneVertices[2], xPlaneVertices[7], xPlaneVertices[17] = bottom, bottom, bottom
 	xPlaneVertices[12], xPlaneVertices[22], xPlaneVertices[27] = top, top, top
 
-	return s.prepareRender(left, right, bottom, top, camera, vec3Str, xPlaneVertices)
+	aspectRatio := ((right - left) * s.deltaZ) / ((top - bottom) * s.deltaY)
+	newWidth := int(0.5 + (right-left)/float32(s.deltaY))
+	newHeight := int(0.5 + (top-bottom)/float32(s.deltaZ))
+	log.Printf("aspectRatio=%v, newWidth=%v, newHeight=%v", aspectRatio, newWidth, newHeight)
+	if aspectRatio*float32(newHeight) < float32(newWidth) {
+		newHeight = int(0.5 + float32(newWidth)/aspectRatio)
+	}
+
+	return s.prepareRender(newWidth, newHeight, left, right, bottom, top, camera, vec3Str, xPlaneVertices)
 }
 
 // PrepareRenderY prepares the GPU to render along the Y axis.
@@ -305,7 +315,15 @@ func (s *Slicer) PrepareRenderY() error {
 	yPlaneVertices[2], yPlaneVertices[7], yPlaneVertices[17] = bottom, bottom, bottom
 	yPlaneVertices[12], yPlaneVertices[22], yPlaneVertices[27] = top, top, top
 
-	return s.prepareRender(left, right, bottom, top, camera, vec3Str, yPlaneVertices)
+	aspectRatio := ((right - left) * s.deltaZ) / ((top - bottom) * s.deltaX)
+	newWidth := int(0.5 + (right-left)/float32(s.deltaX))
+	newHeight := int(0.5 + (top-bottom)/float32(s.deltaZ))
+	log.Printf("aspectRatio=%v, newWidth=%v, newHeight=%v", aspectRatio, newWidth, newHeight)
+	if aspectRatio*float32(newHeight) < float32(newWidth) {
+		newHeight = int(0.5 + float32(newWidth)/aspectRatio)
+	}
+
+	return s.prepareRender(newWidth, newHeight, left, right, bottom, top, camera, vec3Str, yPlaneVertices)
 }
 
 // PrepareRenderZ prepares the GPU to render along the Z axis.
@@ -322,19 +340,20 @@ func (s *Slicer) PrepareRenderZ() error {
 	zPlaneVertices[1], zPlaneVertices[6], zPlaneVertices[16] = bottom, bottom, bottom
 	zPlaneVertices[11], zPlaneVertices[21], zPlaneVertices[26] = top, top, top
 
-	return s.prepareRender(left, right, bottom, top, camera, vec3Str, zPlaneVertices)
-}
-
-func (s *Slicer) prepareRender(left, right, bottom, top float32, camera mgl32.Mat4, vec3Str string, planeVertices []float32) error {
-	// Create or resize window if necessary.
-	near, far := float32(0.1), float32(100.0)
-	aspectRatio := (right - left) / (top - bottom)
-	newWidth := int(0.5 + (right-left)/float32(s.delta))
-	newHeight := int(0.5 + (top-bottom)/float32(s.delta))
+	aspectRatio := ((right - left) * s.deltaY) / ((top - bottom) * s.deltaX)
+	newWidth := int(0.5 + (right-left)/float32(s.deltaX))
+	newHeight := int(0.5 + (top-bottom)/float32(s.deltaY))
 	log.Printf("aspectRatio=%v, newWidth=%v, newHeight=%v", aspectRatio, newWidth, newHeight)
 	if aspectRatio*float32(newHeight) < float32(newWidth) {
 		newHeight = int(0.5 + float32(newWidth)/aspectRatio)
 	}
+
+	return s.prepareRender(newWidth, newHeight, left, right, bottom, top, camera, vec3Str, zPlaneVertices)
+}
+
+func (s *Slicer) prepareRender(newWidth, newHeight int, left, right, bottom, top float32, camera mgl32.Mat4, vec3Str string, planeVertices []float32) error {
+	// Create or resize window if necessary.
+	near, far := float32(0.1), float32(100.0)
 	resize := (s.width != newWidth || s.height != newHeight)
 
 	log.Printf("prepareRender: (%v,%v)-(%v,%v), resize=%v", left, bottom, right, top, resize)

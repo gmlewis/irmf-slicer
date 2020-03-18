@@ -14,7 +14,6 @@ import (
 	"flag"
 	"io/ioutil"
 	"log"
-	"path/filepath"
 	"strings"
 
 	"github.com/gmlewis/irmf-slicer/irmf"
@@ -22,11 +21,13 @@ import (
 	"github.com/gmlewis/irmf-slicer/zipper"
 )
 
+const defaultRes = 42
+
 var (
-	microns  = flag.Float64("res", 42.0, "Resolution in microns")
+	microns  = flag.Float64("res", 0.0, "Resolution in microns (default is 42.0)")
 	view     = flag.Bool("view", false, "Render slicing to window")
 	writeSTL = flag.Bool("stl", false, "Write stl files, one per material")
-	writeZip = flag.Bool("zip", false, "Write slices to zip file")
+	writeZip = flag.Bool("zip", false, "Write slices to zip files, one per material (default resolution is X:65,Y:60,Z:30 microns)")
 )
 
 func main() {
@@ -36,7 +37,18 @@ func main() {
 		log.Printf("-stl or -zip must be supplied to generate output. Testing IRMF shader compilation only.")
 	}
 
-	slicer := irmf.Init(*view, float32(*microns))
+	var xRes, yRes, zRes float32
+	switch {
+	case *writeZip && *microns == 0.0: // use 65, 60, 30 microns
+		xRes, yRes, zRes = 65.0, 60.0, 30.0
+	case *microns == 0.0: // use defaultRes
+		xRes, yRes, zRes = defaultRes, defaultRes, defaultRes
+	default:
+		xRes, yRes, zRes = float32(*microns), float32(*microns), float32(*microns)
+	}
+	log.Printf("Resolution in microns: X: %v, Y: %v, Z: %v", xRes, yRes, zRes)
+
+	slicer := irmf.Init(*view, xRes, yRes, zRes)
 	defer slicer.Close()
 
 	for _, arg := range flag.Args() {
@@ -45,7 +57,6 @@ func main() {
 			continue
 		}
 
-		dirName := filepath.Dir(arg)
 		log.Printf("Processing IRMF shader %q...", arg)
 		buf, err := ioutil.ReadFile(arg)
 		check("ReadFile: %v", err)
@@ -53,18 +64,17 @@ func main() {
 		err = slicer.NewModel(buf)
 		check("%v: %v", arg, err)
 
-		baseName := strings.TrimSuffix(filepath.Base(arg), ".irmf")
+		baseName := strings.TrimSuffix(arg, ".irmf")
 
 		if *writeSTL {
 			log.Printf("Slicing %v materials into separate STL files...", slicer.NumMaterials())
-			err = voxels.Slice(filepath.Join(dirName, baseName), slicer)
+			err = voxels.Slice(baseName, slicer)
 			check("voxels.Slice: %v", err)
 		}
 
 		if *writeZip {
-			zipName := filepath.Join(dirName, baseName+".irmf.zip")
-			log.Printf("Slicing %v materials into file %q...", slicer.NumMaterials(), zipName)
-			err = zipper.Slice(zipName, slicer)
+			log.Printf("Slicing %v materials into separate ZIP files...", slicer.NumMaterials())
+			err = zipper.Slice(baseName, slicer)
 			check("zipper.Slice: %v", err)
 		}
 	}

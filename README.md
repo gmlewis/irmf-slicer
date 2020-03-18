@@ -32,9 +32,9 @@ or into voxel slices. For STL files, it outputs one STL file per material.
 service bureau currently supports. The resolution can be reduced to limit
 the STL file sizes, but at the expense of lossed detail.)
 
-For voxel slices, it writes them out to one ZIP file (per IRMF shader model file).
+For voxel slices, it writes them out to one ZIP file per material.
 These slices can then be fed to 3D printer software that accepts
-voxel slices as input for printing.
+voxel slices as input for printing (such as [NanoDLP](https://www.nanodlp.com/)).
 
 Once 3D printers support IRMF shader model files directly for printing,
 this slicer will no longer be needed.
@@ -73,8 +73,12 @@ This slicer dices up your model (the IRMF shader) into slices (planes)
 that are perpendicular (normal) to the Z (up) axis. The slices are very
 thin and when stacked together, represent your solid model.
 
-Using the `-zip` option, the result is a ZIP file with all the slices in
-separate sub-folders named by the unique names of the materials.
+Using the `-zip` option, the result is a ZIP file per model material
+with all the slices in the root of the ZIP so as to be compatible
+with NanoDLP. When using the `-zip` option, the resolution is set
+to X: 65, Y: 60, Z: 30 microns (unless the `-res` option is used to
+override this) in order to support the `MCAST + Sylgard / 65 micron`
+option of NanoDLP.
 
 Using the `-stl` option, the result is one STL file per model material.
 
