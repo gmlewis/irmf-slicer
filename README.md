@@ -36,8 +36,14 @@ For voxel slices, it writes them out to one ZIP file per material.
 These slices can then be fed to 3D printer software that accepts
 voxel slices as input for printing (such as [NanoDLP](https://www.nanodlp.com/)).
 
+For resin printers using either the [ChiTuBox](https://www.chitubox.com/) or
+[AnyCubic](https://www.anycubic.com/products/anycubic-photon-3d-printer) slicer
+(such as the [Elegoo Mars](https://www.elegoo.com/product/elegoo-mars-uv-photocuring-lcd-3d-printer/)),
+the `-dlp` option will output the voxel slices in the `.cbddlp` file
+format (which is identical to the `.photon` file format).
+
 Once 3D printers support IRMF shader model files directly for printing,
-this slicer will no longer be needed.
+however, this slicer will no longer be needed.
 
 # FAQ
 
@@ -73,12 +79,17 @@ This slicer dices up your model (the IRMF shader) into slices (planes)
 that are perpendicular (normal) to the Z (up) axis. The slices are very
 thin and when stacked together, represent your solid model.
 
-Using the `-zip` option, the result is a ZIP file per model material
+Using the `-zip` option, the result is one ZIP file per model material
 with all the slices in the root of the ZIP so as to be compatible
 with NanoDLP. When using the `-zip` option, the resolution is set
 to X: 65, Y: 60, Z: 30 microns (unless the `-res` option is used to
 override this) in order to support the `MCAST + Sylgard / 65 micron`
 option of NanoDLP.
+
+Using the `-dlp` option, the result is one `.cbddlp` file per model material
+that can be loaded into the [ChiTuBox](https://www.chitubox.com/) or
+[AnyCubic](https://www.anycubic.com/products/anycubic-photon-3d-printer)
+slicer directly (`.cbddlp` is identical to the `.photon` file format).
 
 Using the `-stl` option, the result is one STL file per model material.
 
