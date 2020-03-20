@@ -135,6 +135,11 @@ const (
 	MaxToMin
 )
 
+// NumXSlices returns the number of slices in the X direction.
+func (s *Slicer) NumXSlices() int {
+	return int(0.5 + (s.irmf.Max[0]-s.irmf.Min[0])/s.deltaX)
+}
+
 // RenderXSlices slices the given materialNum (1-based index)
 // to an image, calling the SliceProcessor for each slice.
 func (s *Slicer) RenderXSlices(materialNum int, sp XSliceProcessor, order Order) error {
@@ -171,6 +176,11 @@ func (s *Slicer) RenderXSlices(materialNum int, sp XSliceProcessor, order Order)
 	return nil
 }
 
+// NumYSlices returns the number of slices in the Y direction.
+func (s *Slicer) NumYSlices() int {
+	return int(0.5 + (s.irmf.Max[1]-s.irmf.Min[1])/s.deltaY)
+}
+
 // RenderYSlices slices the given materialNum (1-based index)
 // to an image, calling the SliceProcessor for each slice.
 func (s *Slicer) RenderYSlices(materialNum int, sp YSliceProcessor, order Order) error {
@@ -205,6 +215,11 @@ func (s *Slicer) RenderYSlices(materialNum int, sp YSliceProcessor, order Order)
 		}
 	}
 	return nil
+}
+
+// NumZSlices returns the number of slices in the Z direction.
+func (s *Slicer) NumZSlices() int {
+	return int(0.5 + (s.irmf.Max[2]-s.irmf.Min[2])/s.deltaZ)
 }
 
 // RenderZSlices slices the given materialNum (1-based index)

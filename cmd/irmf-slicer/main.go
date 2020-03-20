@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/gmlewis/irmf-slicer/irmf"
+	"github.com/gmlewis/irmf-slicer/photon"
 	"github.com/gmlewis/irmf-slicer/voxels"
 	"github.com/gmlewis/irmf-slicer/zipper"
 )
@@ -26,6 +27,7 @@ const defaultRes = 42
 var (
 	microns  = flag.Float64("res", 0.0, "Resolution in microns (default is 42.0)")
 	view     = flag.Bool("view", false, "Render slicing to window")
+	writeDLP = flag.Bool("dlp", false, "Write ChiTuBox .cbddlp files (same as AnyCubic .photon), one per material (default resolution is: X:47.25,Y:47.25,Z:50 microns)")
 	writeSTL = flag.Bool("stl", false, "Write stl files, one per material")
 	writeZip = flag.Bool("zip", false, "Write slices to zip files, one per material (default resolution is X:65,Y:60,Z:30 microns)")
 )
@@ -33,12 +35,14 @@ var (
 func main() {
 	flag.Parse()
 
-	if !*writeSTL && !*writeZip {
-		log.Printf("-stl or -zip must be supplied to generate output. Testing IRMF shader compilation only.")
+	if !*writeDLP && !*writeSTL && !*writeZip {
+		log.Printf("-dlp or -stl or -zip must be supplied to generate output. Testing IRMF shader compilation only.")
 	}
 
 	var xRes, yRes, zRes float32
 	switch {
+	case *writeDLP && *microns == 0.0:
+		xRes, yRes, zRes = 47.25, 47.25, 50.0
 	case *writeZip && *microns == 0.0: // use 65, 60, 30 microns
 		xRes, yRes, zRes = 65.0, 60.0, 30.0
 	case *microns == 0.0: // use defaultRes
@@ -66,14 +70,20 @@ func main() {
 
 		baseName := strings.TrimSuffix(arg, ".irmf")
 
+		if *writeDLP {
+			log.Printf("Slicing %v materials into separate cdbdlp files (%v slices each)...", slicer.NumMaterials(), slicer.NumZSlices())
+			err = photon.Slice(baseName, xRes, yRes, zRes, slicer)
+			check("photon.Slice: %v", err)
+		}
+
 		if *writeSTL {
-			log.Printf("Slicing %v materials into separate STL files...", slicer.NumMaterials())
+			log.Printf("Slicing %v materials into separate STL files (%v slices each)...", slicer.NumMaterials(), slicer.NumZSlices())
 			err = voxels.Slice(baseName, slicer)
 			check("voxels.Slice: %v", err)
 		}
 
 		if *writeZip {
-			log.Printf("Slicing %v materials into separate ZIP files...", slicer.NumMaterials())
+			log.Printf("Slicing %v materials into separate ZIP files (%v slices each)...", slicer.NumMaterials(), slicer.NumZSlices())
 			err = zipper.Slice(baseName, slicer)
 			check("zipper.Slice: %v", err)
 		}

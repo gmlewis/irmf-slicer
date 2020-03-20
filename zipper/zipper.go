@@ -1,4 +1,4 @@
-// Package zipper is a SliceProcessor that writes its results to a ZIP file.
+// Package zipper is a SliceProcessor that writes its results to one or more ZIP files.
 package zipper
 
 import (
@@ -26,7 +26,7 @@ type Slicer interface {
 }
 
 // Slice slices an IRMF shader into one or more ZIP files
-// containing many voxel slices as PNG images (one per material).
+// containing many voxel slices as PNG images (one file per material).
 func Slice(baseFilename string, slicer Slicer) error {
 	for materialNum := 1; materialNum <= slicer.NumMaterials(); materialNum++ {
 		materialName := strings.ReplaceAll(slicer.MaterialName(materialNum), " ", "-")
