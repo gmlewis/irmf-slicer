@@ -93,11 +93,6 @@ slicer directly (`.cbddlp` is identical to the `.photon` file format).
 
 Using the `-stl` option, the result is one STL file per model material.
 
-## Why do I get a `Slice: compile shader` error?
-
-Hmmm... Does the Mac not support GLSL ES 3.00?
-This needs more investigation.
-
 ----------------------------------------------------------------------
 
 # License

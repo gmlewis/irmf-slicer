@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/go-gl/gl/v4.6-core/gl"
+	"github.com/go-gl/gl/v4.1-core/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
 	"github.com/go-gl/mathgl/mgl32"
 )
@@ -98,6 +98,7 @@ func (s *Slicer) createOrResizeWindow(width, height int) {
 	glfw.WindowHint(glfw.ContextVersionMajor, 4)
 	glfw.WindowHint(glfw.ContextVersionMinor, 1)
 	glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
+	glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
 	if !s.view {
 		glfw.WindowHint(glfw.Visible, glfw.False)
 	}
@@ -484,7 +485,8 @@ func compileShader(source string, shaderType uint32) (uint32, error) {
 	return shader, nil
 }
 
-const vertexShader = `#version 300 es
+const vertexShader = `
+#version 330
 uniform mat4 projection;
 uniform mat4 camera;
 uniform mat4 model;
@@ -496,7 +498,8 @@ void main() {
 }
 ` + "\x00"
 
-const fsHeader = `#version 300 es
+const fsHeader = `
+#version 330
 precision highp float;
 precision highp int;
 in vec3 fragVert;
