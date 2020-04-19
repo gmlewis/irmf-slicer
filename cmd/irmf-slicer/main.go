@@ -16,6 +16,7 @@ import (
 	"log"
 	"strings"
 
+	"github.com/gmlewis/irmf-slicer/binvox"
 	"github.com/gmlewis/irmf-slicer/irmf"
 	"github.com/gmlewis/irmf-slicer/photon"
 	"github.com/gmlewis/irmf-slicer/voxels"
@@ -25,11 +26,13 @@ import (
 const defaultRes = 42
 
 var (
-	microns  = flag.Float64("res", 0.0, "Resolution in microns (default is 42.0)")
-	view     = flag.Bool("view", false, "Render slicing to window")
-	writeDLP = flag.Bool("dlp", false, "Write ChiTuBox .cbddlp files (same as AnyCubic .photon), one per material (default resolution is: X:47.25,Y:47.25,Z:50 microns)")
-	writeSTL = flag.Bool("stl", false, "Write stl files, one per material")
-	writeZip = flag.Bool("zip", false, "Write slices to zip files, one per material (default resolution is X:65,Y:60,Z:30 microns)")
+	microns = flag.Float64("res", 0.0, "Resolution in microns (default is 42.0)")
+	view    = flag.Bool("view", false, "Render slicing to window")
+
+	writeBinvox = flag.Bool("binvox", false, "Write binvox files, one per material")
+	writeDLP    = flag.Bool("dlp", false, "Write ChiTuBox .cbddlp files (same as AnyCubic .photon), one per material (default resolution is: X:47.25,Y:47.25,Z:50 microns)")
+	writeSTL    = flag.Bool("stl", false, "Write stl files, one per material")
+	writeZip    = flag.Bool("zip", false, "Write slices to zip files, one per material (default resolution is X:65,Y:60,Z:30 microns)")
 )
 
 func main() {
@@ -69,6 +72,12 @@ func main() {
 		check("%v: %v", arg, err)
 
 		baseName := strings.TrimSuffix(arg, ".irmf")
+
+		if *writeBinvox {
+			log.Printf("Slicing %v materials into separate binvox files (%v slices each)...", slicer.NumMaterials(), slicer.NumZSlices())
+			err = binvox.Slice(baseName, slicer)
+			check("binvox.Slice: %v", err)
+		}
 
 		if *writeDLP {
 			log.Printf("Slicing %v materials into separate cdbdlp files (%v slices each)...", slicer.NumMaterials(), slicer.NumZSlices())
