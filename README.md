@@ -27,19 +27,20 @@ The technology stack used is Go and OpenGL.
 This program is needed to bridge the gap until 3D printer manufacturers
 adopt IRMF shaders and printable file formats in addition to G-Code
 or voxel slices. It slices an IRMF shader model into either STL files
-or into voxel slices. For STL files, it outputs one STL file per material.
+or into voxel slices (with various output file formats).
+For STL files, it outputs one STL file per material.
 (Note that some STL files can become enormous, way larger than any online
 service bureau currently supports. The resolution can be reduced to limit
 the STL file sizes, but at the expense of lossed detail.)
 
-For voxel slices, it writes them out to one ZIP file per material.
+For voxel slices, it can write them out to ZIP files (one ZIP file per material).
 These slices can then be fed to 3D printer software that accepts
 voxel slices as input for printing (such as [NanoDLP](https://www.nanodlp.com/)).
 
 For resin printers using either the [ChiTuBox](https://www.chitubox.com/) or
 [AnyCubic](https://www.anycubic.com/products/anycubic-photon-3d-printer) slicer
 (such as the [Elegoo Mars](https://www.elegoo.com/product/elegoo-mars-uv-photocuring-lcd-3d-printer/)),
-the `-dlp` option will output the voxel slices in the `.cbddlp` file
+the `-dlp` option will output the voxel slices to the `.cbddlp` file
 format (which is identical to the `.photon` file format).
 
 Once 3D printers support IRMF shader model files directly for printing,
@@ -92,6 +93,8 @@ that can be loaded into the [ChiTuBox](https://www.chitubox.com/) or
 slicer directly (`.cbddlp` is identical to the `.photon` file format).
 
 Using the `-stl` option, the result is one STL file per model material.
+
+Using the `-binvox` option, it will write one `.binvox` file per model material.
 
 ----------------------------------------------------------------------
 

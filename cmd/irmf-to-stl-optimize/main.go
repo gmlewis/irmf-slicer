@@ -25,6 +25,7 @@ var (
 	fileRE = regexp.MustCompile(`Writing: (\S+)`)
 
 	maxSize = flag.Int64("max", 50000000, "Maximum STL file size")
+	start   = flag.Int("start", 400, "Starting resolution")
 )
 
 func main() {
@@ -33,7 +34,7 @@ func main() {
 	var pts []string
 	for _, arg := range flag.Args() {
 
-		res := 200
+		res := *start
 		stepSize := res / 2
 
 		visited := map[int]int64{}
@@ -94,9 +95,11 @@ func main() {
 					hitMax = true
 				}
 				res += stepSize
-				stepSize /= 2
-				if stepSize < 1 {
-					stepSize = 1
+				if smallestValidRes != 0 {
+					stepSize /= 2
+					if stepSize < 1 {
+						stepSize = 1
+					}
 				}
 				log.Printf("\n\nRaised res up to %v, stepSize=%v", res, stepSize)
 			} else {
@@ -106,6 +109,10 @@ func main() {
 					res -= stepSize
 					stepSize /= 2
 					if stepSize < 1 {
+						stepSize = 1
+					}
+					if res < 1 {
+						res = 1
 						stepSize = 1
 					}
 					log.Printf("\n\nDropped res down to %v, stepSize=%v", res, stepSize)
