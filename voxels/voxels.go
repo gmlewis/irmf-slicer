@@ -32,6 +32,7 @@ func Slice(baseFilename string, slicer Slicer) error {
 		materialName := strings.ReplaceAll(slicer.MaterialName(materialNum), " ", "-")
 
 		filename := fmt.Sprintf("%v-mat%02d-%v.stl", baseFilename, materialNum, materialName)
+		log.Printf("Writing: %v", filename)
 		w, err := stl.New(filename)
 		if err != nil {
 			return fmt.Errorf("stl.New: %v", err)

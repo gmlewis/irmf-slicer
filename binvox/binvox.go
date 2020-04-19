@@ -7,9 +7,8 @@ import (
 	"log"
 	"strings"
 
-	gl "github.com/fogleman/fauxgl"
 	"github.com/gmlewis/irmf-slicer/irmf"
-	"github.com/gmlewis/stldice/binvox"
+	"github.com/gmlewis/stldice/v3/binvox"
 )
 
 // Slicer represents a slicer that writes binvox files for multiple
@@ -21,6 +20,8 @@ type Slicer interface {
 
 	PrepareRenderZ() error
 	RenderZSlices(materialNum int, sp irmf.ZSliceProcessor, order irmf.Order) error
+	NumXSlices() int
+	NumYSlices() int
 	NumZSlices() int
 }
 
@@ -33,7 +34,15 @@ func Slice(baseFilename string, slicer Slicer) error {
 
 		min, max := slicer.MBB()
 		scale := float64(max[2] - min[2])
-		b := &binvox.BinVOX{Scale: scale, NZ: slicer.NumZSlices()}
+		b := binvox.New(
+			slicer.NumXSlices(),
+			slicer.NumYSlices(),
+			slicer.NumZSlices(),
+			float64(min[0]),
+			float64(min[1]),
+			float64(min[2]),
+			scale,
+		)
 
 		c := new(b, slicer)
 
@@ -53,6 +62,7 @@ func Slice(baseFilename string, slicer Slicer) error {
 			return fmt.Errorf("RenderZSlices: %v", err)
 		}
 
+		log.Printf("Writing: %v", filename)
 		if err := b.Write(filename, 0, 0, 0, b.NX, b.NY, b.NZ); err != nil {
 			return fmt.Errorf("Write: %v", err)
 		}
@@ -111,34 +121,35 @@ func (c *client) ProcessZSlice(sliceNum int, z, voxelRadius float32, img image.I
 
 	var xpwf, xmwf, ypwf, ymwf, zwf writeFunc
 	if c.n[2] > 0 { // Also process +X, -X, +Y, and -Y.
+		zval := c.slicer.NumZSlices() - sliceNum - 1
+
 		xpwf = func(u, v int) error {
-			c.b.Voxels = append(c.b.Voxels, gl.Voxel{X: u, Y: v, Z: sliceNum, Color: gl.White})
+			c.b.Add(u, v, zval)
 			return nil
 		}
 
 		xmwf = func(u, v int) error {
-			c.b.Voxels = append(c.b.Voxels, gl.Voxel{X: u, Y: v, Z: sliceNum, Color: gl.White})
+			c.b.Add(u, v, zval)
 			return nil
 		}
 
 		ypwf = func(u, v int) error {
-			c.b.Voxels = append(c.b.Voxels, gl.Voxel{X: u, Y: v, Z: sliceNum, Color: gl.White})
+			c.b.Add(u, v, zval)
 			return nil
 		}
 
 		ymwf = func(u, v int) error {
-			c.b.Voxels = append(c.b.Voxels, gl.Voxel{X: u, Y: v, Z: sliceNum, Color: gl.White})
+			c.b.Add(u, v, zval)
 			return nil
 		}
 
-		zval := c.slicer.NumZSlices() - sliceNum - 1
 		zwf = func(u, v int) error {
-			c.b.Voxels = append(c.b.Voxels, gl.Voxel{X: u, Y: v, Z: zval, Color: gl.White})
+			c.b.Add(u, v, zval)
 			return nil
 		}
 	} else {
 		zwf = func(u, v int) error {
-			c.b.Voxels = append(c.b.Voxels, gl.Voxel{X: u, Y: v, Z: sliceNum, Color: gl.White})
+			c.b.Add(u, v, sliceNum)
 			return nil
 		}
 	}
