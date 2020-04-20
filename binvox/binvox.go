@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/gmlewis/irmf-slicer/irmf"
-	"github.com/gmlewis/stldice/v3/binvox"
+	"github.com/gmlewis/stldice/v4/binvox"
 )
 
 // Slicer represents a slicer that writes binvox files for multiple
@@ -42,6 +42,7 @@ func Slice(baseFilename string, slicer Slicer) error {
 			float64(min[1]),
 			float64(min[2]),
 			scale,
+			false,
 		)
 
 		c := new(b, slicer)
