@@ -14,6 +14,7 @@ import (
 	"flag"
 	"io/ioutil"
 	"log"
+	"math"
 	"strings"
 
 	"github.com/gmlewis/irmf-slicer/binvox"
@@ -26,8 +27,15 @@ import (
 const defaultRes = 42
 
 var (
-	microns = flag.Float64("res", 0.0, "Resolution in microns (default is 42.0)")
+	microns = flag.Float64("res", 0.0, "Resolution in microns for X, Y, and Z (default is 42.0)")
+	resXovr = flag.Float64("resx", 0.0, "X resolution override in microns")
+	resYovr = flag.Float64("resy", 0.0, "Y resolution override in microns")
+	resZovr = flag.Float64("resz", 0.0, "Z resolution override in microns")
 	view    = flag.Bool("view", false, "Render slicing to window")
+
+	rotX = flag.Float64("rotx", 0.0, "Rotate object around X axis - first  (in degrees)")
+	rotY = flag.Float64("roty", 0.0, "Rotate object around Y axis - second (in degrees)")
+	rotZ = flag.Float64("rotz", 0.0, "Rotate object around Z axis - third  (in degrees)")
 
 	writeBinvox = flag.Bool("binvox", false, "Write binvox files, one per material")
 	writeDLP    = flag.Bool("dlp", false, "Write ChiTuBox .cbddlp files (same as AnyCubic .photon), one per material (default resolution is: X:47.25,Y:47.25,Z:50 microns)")
@@ -53,9 +61,21 @@ func main() {
 	default:
 		xRes, yRes, zRes = float32(*microns), float32(*microns), float32(*microns)
 	}
+
+	if *resXovr > 0.0 {
+		xRes = float32(*resXovr)
+	}
+	if *resYovr > 0.0 {
+		yRes = float32(*resYovr)
+	}
+	if *resZovr > 0.0 {
+		zRes = float32(*resZovr)
+	}
+
 	log.Printf("Resolution in microns: X: %v, Y: %v, Z: %v", xRes, yRes, zRes)
 
-	slicer := irmf.Init(*view, xRes, yRes, zRes)
+	rotx, roty, rotz := float32(*rotX*math.Pi/180.0), float32(*rotY*math.Pi/180.0), float32(*rotZ*math.Pi/180.0)
+	slicer := irmf.Init(*view, xRes, yRes, zRes, rotx, roty, rotz)
 	defer slicer.Close()
 
 	for _, arg := range flag.Args() {

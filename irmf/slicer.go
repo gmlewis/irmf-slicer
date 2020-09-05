@@ -28,6 +28,10 @@ type Slicer struct {
 	deltaZ float32
 	view   bool
 
+	rotx float32
+	roty float32
+	rotz float32
+
 	program uint32
 	model   mgl32.Mat4
 	vao     uint32
@@ -38,9 +42,13 @@ type Slicer struct {
 }
 
 // Init returns a new Slicer instance.
-func Init(view bool, umXRes, umYRes, umZRes float32) *Slicer {
+func Init(view bool, umXRes, umYRes, umZRes, rotX, rotY, rotZ float32) *Slicer {
 	// TODO: Support units other than millimeters.
-	return &Slicer{deltaX: umXRes / 1000.0, deltaY: umYRes / 1000.0, deltaZ: umZRes / 1000.0, view: view}
+	return &Slicer{
+		deltaX: umXRes / 1000.0, deltaY: umYRes / 1000.0, deltaZ: umZRes / 1000.0,
+		rotx: rotX, roty: rotY, rotz: rotZ,
+		view: view,
+	}
 }
 
 // NewModel prepares the slicer to slice a new shader model.
@@ -393,6 +401,17 @@ func (s *Slicer) prepareRender(newWidth, newHeight int, left, right, bottom, top
 	gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
 
 	s.model = mgl32.Ident4()
+
+	if s.rotx != 0.0 {
+		s.model = s.model.Mul4(mgl32.HomogRotate3DX(s.rotx))
+	}
+	if s.roty != 0.0 {
+		s.model = s.model.Mul4(mgl32.HomogRotate3DY(s.roty))
+	}
+	if s.rotz != 0.0 {
+		s.model = s.model.Mul4(mgl32.HomogRotate3DZ(s.rotz))
+	}
+
 	s.modelUniform = gl.GetUniformLocation(s.program, gl.Str("model\x00"))
 	gl.UniformMatrix4fv(s.modelUniform, 1, false, &s.model[0])
 
