@@ -7,11 +7,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-    - name: Set up Go 1.13
+    - name: Set up Go 1.14
       uses: actions/setup-go@v1
       with:
-        go-version: 1.13
+        go-version: 1.14
       id: go
+
+    - name: Perform updates
+      run: sudo apt-get update
 
     - name: Get GLFW dependencies - https://github.com/go-gl/glfw/blob/master/README.md
       run: sudo apt-get install -y libgl1-mesa-dev xorg-dev
