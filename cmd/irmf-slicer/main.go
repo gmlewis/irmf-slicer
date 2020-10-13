@@ -38,8 +38,8 @@ var (
 func main() {
 	flag.Parse()
 
-	if !*writeDLP && !*writeSTL && !*writeZip {
-		log.Printf("-dlp or -stl or -zip must be supplied to generate output. Testing IRMF shader compilation only.")
+	if !*writeBinvox && !*writeDLP && !*writeSTL && !*writeZip {
+		log.Printf("-binvox or -dlp or -stl or -zip must be supplied to generate output. Testing IRMF shader compilation only.")
 	}
 
 	var xRes, yRes, zRes float32
