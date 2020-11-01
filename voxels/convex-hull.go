@@ -1,25 +1,24 @@
 package voxels
 
 import (
-	"log"
 	"math"
 	"sort"
 )
 
-func convexHull(path Path) Path {
+func convexHull(path Path, reverse bool) Path {
 	if len(path) == 0 {
 		return nil
 	}
 	pts := sortByAngle(path)
 
 	var stack []*keyWithAngle
-	for i, pt := range pts {
+	for _, pt := range pts {
 		if sl := len(stack); sl >= 2 && ccw(stack[sl-2], stack[sl-1], pt) < 0 {
-			log.Printf("pop stack (%q) due to ccw<0 at i=%v pt=%#v", stack[sl-1].key, i, *pt)
+			// log.Printf("pop stack (%q) due to ccw<0 at i=%v pt=%#v", stack[sl-1].key, i, *pt)
 			stack = stack[:sl-1]
 		}
 		for len(stack) >= 2 && ccw(stack[len(stack)-2], stack[len(stack)-1], pt) <= 0 {
-			log.Printf("pop stack (%q) due to ccw<=0 at i=%v pt=%#v", stack[len(stack)-1].key, i, *pt)
+			// log.Printf("pop stack (%q) due to ccw<=0 at i=%v pt=%#v", stack[len(stack)-1].key, i, *pt)
 			stack = stack[:len(stack)-1]
 		}
 		stack = append(stack, pt)
@@ -30,6 +29,12 @@ func convexHull(path Path) Path {
 		result = append(result, pt.key)
 	}
 	result = append(result, pts[0].key)
+
+	if reverse {
+		for left, right := 0, len(result)-1; left < right; left, right = left+1, right-1 {
+			result[left], result[right] = result[right], result[left]
+		}
+	}
 
 	return result
 }
@@ -43,7 +48,7 @@ type keyWithAngle struct {
 
 func ccw(p1, p2, p3 *keyWithAngle) int {
 	result := (p2.x-p1.x)*(p3.y-p1.y) - (p2.y-p1.y)*(p3.x-p1.x)
-	log.Printf("ccw (%v,%v)-(%v,%v)-(%v,%v) = %v", p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, result)
+	// log.Printf("ccw (%v,%v)-(%v,%v)-(%v,%v) = %v", p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, result)
 	return result
 }
 

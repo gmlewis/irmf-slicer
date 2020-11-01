@@ -8,8 +8,9 @@ import (
 
 func TestConvexHull(t *testing.T) {
 	tests := []struct {
-		path Path
-		want Path
+		path    Path
+		reverse bool
+		want    Path
 	}{
 		{}, // no outline
 		{
@@ -141,7 +142,7 @@ func TestConvexHull(t *testing.T) {
 			},
 		},
 		{
-			// Reversed
+			reverse: true,
 			path: Path{
 				"00004,00012",
 				"00005,00012",
@@ -153,9 +154,9 @@ func TestConvexHull(t *testing.T) {
 			},
 			want: Path{
 				"00004,00012",
-				"00004,00014",
-				"00005,00014",
 				"00005,00012",
+				"00005,00014",
+				"00004,00014",
 				"00004,00012",
 			},
 		},
@@ -192,7 +193,7 @@ func TestConvexHull(t *testing.T) {
 			},
 		},
 		{
-			// Reversed...
+			reverse: true,
 			path: Path{
 				"00001,00002",
 				"00002,00002",
@@ -202,9 +203,9 @@ func TestConvexHull(t *testing.T) {
 			},
 			want: Path{
 				"00001,00002",
-				"00001,00003",
-				"00002,00003",
 				"00002,00002",
+				"00002,00003",
+				"00001,00003",
 				"00001,00002",
 			},
 		},
@@ -212,7 +213,7 @@ func TestConvexHull(t *testing.T) {
 
 	for i, tt := range tests {
 		t.Run(fmt.Sprintf("test #%v", i), func(t *testing.T) {
-			got := convexHull(tt.path)
+			got := convexHull(tt.path, tt.reverse)
 
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("convexHull =\n%#v\nwant:\n%#v", got, tt.want)
