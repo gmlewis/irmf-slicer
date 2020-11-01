@@ -46,12 +46,14 @@ func Slice(baseFilename string, slicer Slicer) error {
 
 		log.Printf("Processing +Z, +X, -X, +Y, -Y...")
 		c.newNormal(0, 0, 1)
+		fmt.Printf("newNormal(0,0,1)\n")
 		if err := slicer.RenderZSlices(materialNum, c, irmf.MaxToMin); err != nil {
 			return fmt.Errorf("RenderZSlices: %v", err)
 		}
 
 		log.Printf("Processing -Z...")
 		c.newNormal(0, 0, -1)
+		fmt.Printf("newNormal(0,0,-1)\n")
 		if err := slicer.RenderZSlices(materialNum, c, irmf.MinToMax); err != nil {
 			return fmt.Errorf("RenderZSlices: %v", err)
 		}
@@ -115,6 +117,11 @@ func (c *client) newNormal(x, y, z float32) {
 }
 
 func (c *client) ProcessZSlice(sliceNum int, z, voxelRadius float32, img image.Image) error {
+	// labels := connectedComponentLabeling(img)
+	// for _, label := range labels {
+	// 	c.processLabel(label)
+	// }
+
 	min, _ := c.slicer.MBB()
 	depth := float32(z) + c.n[2]*float32(voxelRadius)
 	vr := float32(voxelRadius)
@@ -125,6 +132,7 @@ func (c *client) ProcessZSlice(sliceNum int, z, voxelRadius float32, img image.I
 	var xpwf, xmwf, ypwf, ymwf writeFunc
 	if c.n[2] > 0 { // Also process +X, -X, +Y, and -Y.
 		xpwf = func(u, v int) error {
+			fmt.Printf("xp(%v,%v)\n", u, v)
 			x := vr2*float32(u) + vr + float32(min[0])
 			y := vr2*float32(v) + vr + float32(min[1])
 			n := [3]float32{1, 0, 0}
@@ -139,6 +147,7 @@ func (c *client) ProcessZSlice(sliceNum int, z, voxelRadius float32, img image.I
 		}
 
 		xmwf = func(u, v int) error {
+			fmt.Printf("xm(%v,%v)\n", u, v)
 			x := vr2*float32(u) + vr + float32(min[0])
 			y := vr2*float32(v) + vr + float32(min[1])
 			n := [3]float32{-1, 0, 0}
@@ -153,6 +162,7 @@ func (c *client) ProcessZSlice(sliceNum int, z, voxelRadius float32, img image.I
 		}
 
 		ypwf = func(u, v int) error {
+			fmt.Printf("yp(%v,%v)\n", u, v)
 			x := vr2*float32(u) + vr + float32(min[0])
 			y := vr2*float32(v) + vr + float32(min[1])
 			n := [3]float32{0, 1, 0}
@@ -167,6 +177,7 @@ func (c *client) ProcessZSlice(sliceNum int, z, voxelRadius float32, img image.I
 		}
 
 		ymwf = func(u, v int) error {
+			fmt.Printf("ym(%v,%v)\n", u, v)
 			x := vr2*float32(u) + vr + float32(min[0])
 			y := vr2*float32(v) + vr + float32(min[1])
 			n := [3]float32{0, -1, 0}
@@ -182,6 +193,7 @@ func (c *client) ProcessZSlice(sliceNum int, z, voxelRadius float32, img image.I
 	}
 
 	zwf := func(u, v int) error {
+		fmt.Printf("z(%v,%v)\n", u, v)
 		x := vr2*float32(u) + vr + float32(min[0])
 		y := vr2*float32(v) + vr + float32(min[1])
 
