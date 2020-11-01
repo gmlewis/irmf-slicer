@@ -8,6 +8,8 @@ import (
 )
 
 func TestConnectedComponentLabeling(t *testing.T) {
+	// testImage is an example taken from:
+	// https://en.wikipedia.org/wiki/Connected-component_labeling
 	testImage := &TestImage{
 		data: []byte{
 			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -104,8 +106,48 @@ func TestConnectedComponentLabeling(t *testing.T) {
 	}
 }
 
-// TestImage is an example taken from:
-// https://en.wikipedia.org/wiki/Connected-component_labeling
+func TestConnectedComponentLabeling2(t *testing.T) {
+	// testImage is an example taken from:
+	// https://stackoverflow.com/questions/42595343/bitmap-to-svg-path
+	testImage := &TestImage{
+		data: []byte{
+			0, 1, 1, 1, 0,
+			1, 1, 0, 1, 1,
+			0, 1, 1, 1, 0,
+		},
+		width:  5,
+		height: 3,
+	}
+	labels := connectedComponentLabeling(testImage)
+
+	want := map[int]*Label{
+		1: &Label{
+			xmin: 0,
+			ymin: 0,
+			xmax: 4,
+			ymax: 2,
+			pixels: map[string]struct{}{
+				"00000,00001": struct{}{},
+				"00000,00002": struct{}{},
+				"00000,00003": struct{}{},
+				"00001,00000": struct{}{},
+				"00001,00001": struct{}{},
+				"00001,00003": struct{}{},
+				"00001,00004": struct{}{},
+				"00002,00001": struct{}{},
+				"00002,00002": struct{}{},
+				"00002,00003": struct{}{}}},
+	}
+
+	if !reflect.DeepEqual(labels, want) {
+		t.Errorf("labels = %#v, want %#v", labels, want)
+	}
+
+	if !reflect.DeepEqual(labels[1], want[1]) {
+		t.Errorf("labels[1] =\n%#v\nwant\n%#v", labels[1], want[1])
+	}
+}
+
 type TestImage struct {
 	data   []byte
 	width  int

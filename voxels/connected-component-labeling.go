@@ -9,6 +9,7 @@ import (
 	"strings"
 )
 
+// Label represents a connected component label.
 type Label struct {
 	xmin, ymin, xmax, ymax int
 	// pixels are keyed by labelKey(x,y)
@@ -50,16 +51,6 @@ func connectedComponentLabeling(img image.Image) map[int]*Label {
 
 	equivalent := map[int]map[int]bool{}
 	setEquivalent := func(a, b int) {
-		if v, ok := equivalent[a]; ok {
-			v[b] = true
-		} else {
-			equivalent[a] = map[int]bool{b: true}
-		}
-		if v, ok := equivalent[b]; ok {
-			v[a] = true
-		} else {
-			equivalent[b] = map[int]bool{a: true}
-		}
 		for k := range equivalent[a] {
 			equivalent[k][a] = true
 			equivalent[k][b] = true
@@ -78,8 +69,8 @@ func connectedComponentLabeling(img image.Image) map[int]*Label {
 	label := map[string]int{}
 	for v := b.Min.Y; v <= b.Max.Y; v++ {
 		for u := b.Min.X; u <= b.Max.X; u++ {
-			// log.Printf("(%v,%v)", u, v)
 			here := pixel(u, v)
+			log.Printf("(%v,%v) = %v", u, v, here)
 			var minLabel int
 
 			left, okLeft := label[labelKey(u-1, v)]
@@ -148,7 +139,9 @@ func connectedComponentLabeling(img image.Image) map[int]*Label {
 				if minLabel == 0 {
 					latestLabel++
 					minLabel = latestLabel
+					equivalent[minLabel] = map[int]bool{minLabel: true}
 				}
+				log.Printf("label[%v]=%v", labelKey(u, v), minLabel)
 				label[labelKey(u, v)] = minLabel
 			}
 		}
@@ -157,7 +150,7 @@ func connectedComponentLabeling(img image.Image) map[int]*Label {
 	minLabels := make(map[int]int, len(equivalent))
 	uniqueLabels := map[int]*Label{}
 	for k, equivs := range equivalent {
-		// log.Printf("equivalent[%v]=%#v", k, equivs)
+		log.Printf("equivalent[%v]=%#v", k, equivs)
 		for v := range equivs {
 			if minLabel, ok := minLabels[k]; ok {
 				if v < minLabel {
@@ -172,7 +165,7 @@ func connectedComponentLabeling(img image.Image) map[int]*Label {
 		}
 	}
 
-	// log.Printf("Found %v unique labels", len(uniqueLabels))
+	log.Printf("Found %v unique labels", len(uniqueLabels))
 
 	keys := make([]string, 0, len(label))
 	for k := range label {
@@ -181,7 +174,7 @@ func connectedComponentLabeling(img image.Image) map[int]*Label {
 	sort.Strings(keys)
 	for _, k := range keys {
 		labelNum := minLabels[label[k]]
-		// log.Printf("label[%q]=%v", k, labelNum)
+		log.Printf("label[%q]=%v", k, labelNum)
 		x, y := parseKey(k)
 
 		label := uniqueLabels[labelNum]
