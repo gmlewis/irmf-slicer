@@ -7,6 +7,15 @@ import (
 	"testing"
 )
 
+func TestConnectedComponentLabeling_Empty(t *testing.T) {
+	testImage := &TestImage{}
+	labels := connectedComponentLabeling(testImage)
+	want := map[int]*Label{}
+	if !reflect.DeepEqual(labels, want) {
+		t.Errorf("labels = %v, want %v", labels, want)
+	}
+}
+
 func TestConnectedComponentLabeling(t *testing.T) {
 	// testImage is an example taken from:
 	// https://en.wikipedia.org/wiki/Connected-component_labeling

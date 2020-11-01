@@ -27,6 +27,10 @@ func (e Edge) RemoveRight() Edge  { return e &^ Right }
 type Outline map[string]Edge
 
 func findEdges(label *Label) Outline {
+	if label == nil {
+		return nil
+	}
+
 	edges := Outline{}
 	// First, set all the edge flags.
 	allEdges := Top | Left | Bottom | Right

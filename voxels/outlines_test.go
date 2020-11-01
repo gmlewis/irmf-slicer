@@ -11,6 +11,7 @@ func TestFindEdges(t *testing.T) {
 		label *Label
 		want  Outline
 	}{
+		{}, // no labels
 		{
 			label: &Label{
 				xmin: 1,

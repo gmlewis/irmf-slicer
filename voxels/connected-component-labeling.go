@@ -70,7 +70,7 @@ func connectedComponentLabeling(img image.Image) map[int]*Label {
 	for v := b.Min.Y; v <= b.Max.Y; v++ {
 		for u := b.Min.X; u <= b.Max.X; u++ {
 			here := pixel(u, v)
-			log.Printf("(%v,%v) = %v", u, v, here)
+			// log.Printf("(%v,%v) = %v", u, v, here)
 			var minLabel int
 
 			left, okLeft := label[labelKey(u-1, v)]
@@ -141,7 +141,7 @@ func connectedComponentLabeling(img image.Image) map[int]*Label {
 					minLabel = latestLabel
 					equivalent[minLabel] = map[int]bool{minLabel: true}
 				}
-				log.Printf("label[%v]=%v", labelKey(u, v), minLabel)
+				// log.Printf("label[%v]=%v", labelKey(u, v), minLabel)
 				label[labelKey(u, v)] = minLabel
 			}
 		}
@@ -150,7 +150,7 @@ func connectedComponentLabeling(img image.Image) map[int]*Label {
 	minLabels := make(map[int]int, len(equivalent))
 	uniqueLabels := map[int]*Label{}
 	for k, equivs := range equivalent {
-		log.Printf("equivalent[%v]=%#v", k, equivs)
+		// log.Printf("equivalent[%v]=%#v", k, equivs)
 		for v := range equivs {
 			if minLabel, ok := minLabels[k]; ok {
 				if v < minLabel {
@@ -165,7 +165,7 @@ func connectedComponentLabeling(img image.Image) map[int]*Label {
 		}
 	}
 
-	log.Printf("Found %v unique labels", len(uniqueLabels))
+	// log.Printf("Found %v unique labels", len(uniqueLabels))
 
 	keys := make([]string, 0, len(label))
 	for k := range label {
@@ -174,7 +174,7 @@ func connectedComponentLabeling(img image.Image) map[int]*Label {
 	sort.Strings(keys)
 	for _, k := range keys {
 		labelNum := minLabels[label[k]]
-		log.Printf("label[%q]=%v", k, labelNum)
+		// log.Printf("label[%q]=%v", k, labelNum)
 		x, y := parseKey(k)
 
 		label := uniqueLabels[labelNum]
