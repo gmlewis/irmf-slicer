@@ -16,7 +16,7 @@ func sortEdges(edges Outline) []string {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
-	log.Printf("keys=%#v", keys)
+	// log.Printf("keys=%#v", keys)
 	return keys
 }
 
@@ -35,7 +35,7 @@ func edgesToPaths(edges Outline) []Path {
 
 	checkPathCompletion := func() {
 		if currentPath[len(currentPath)-1] == currentPath[0] {
-			log.Printf("Completed path, length=%v: %#v", len(currentPath), currentPath)
+			// log.Printf("Completed path, length=%v: %#v", len(currentPath), currentPath)
 			result = append(result, currentPath)
 			currentPath = nil
 			keys = sortEdges(edges)
@@ -66,7 +66,7 @@ func edgesToPaths(edges Outline) []Path {
 		}
 		lastEdgeKey = labelKey(x+1, y)
 		currentPath = append(currentPath, lastEdgeKey)
-		log.Printf("Added %q as top edge: len(currentPath)=%v", lastEdgeKey, len(currentPath))
+		// log.Printf("Added %q as top edge: len(currentPath)=%v", lastEdgeKey, len(currentPath))
 		checkPathCompletion()
 		return true
 	}
@@ -86,7 +86,7 @@ func edgesToPaths(edges Outline) []Path {
 		}
 		lastEdgeKey = upKey
 		currentPath = append(currentPath, lastEdgeKey)
-		log.Printf("Added %q as left edge: len(currentPath)=%v", lastEdgeKey, len(currentPath))
+		// log.Printf("Added %q as left edge: len(currentPath)=%v", lastEdgeKey, len(currentPath))
 		checkPathCompletion()
 		return true
 	}
@@ -106,7 +106,7 @@ func edgesToPaths(edges Outline) []Path {
 		}
 		lastEdgeKey = labelKey(x-1, y)
 		currentPath = append(currentPath, lastEdgeKey)
-		log.Printf("Added %q as bottom edge: len(currentPath)=%v", lastEdgeKey, len(currentPath))
+		// log.Printf("Added %q as bottom edge: len(currentPath)=%v", lastEdgeKey, len(currentPath))
 		checkPathCompletion()
 		return true
 	}
@@ -126,7 +126,7 @@ func edgesToPaths(edges Outline) []Path {
 		}
 		lastEdgeKey = labelKey(x, y+1)
 		currentPath = append(currentPath, lastEdgeKey)
-		log.Printf("Added %q as right edge: len(currentPath)=%v", lastEdgeKey, len(currentPath))
+		// log.Printf("Added %q as right edge: len(currentPath)=%v", lastEdgeKey, len(currentPath))
 		checkPathCompletion()
 		return true
 	}
@@ -134,7 +134,7 @@ func edgesToPaths(edges Outline) []Path {
 	for len(edges) > 0 {
 		edge := edges[lastEdgeKey]
 		x, y := parseKey(lastEdgeKey)
-		log.Printf("edges[%q]=%v (%v,%v)", lastEdgeKey, edge, x, y)
+		// log.Printf("edges[%q]=%v (%v,%v)", lastEdgeKey, edge, x, y)
 
 		if lastEdge != Bottom {
 			if checkTop(edge, x, y) {
