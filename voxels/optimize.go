@@ -10,6 +10,10 @@ import (
 )
 
 func (c *client) optimizeSTL(sliceNum int, z, voxelRadius float32, img image.Image) error {
+	if c.n[2] < 0 { // temporarily for debugging
+		return nil
+	}
+
 	labels := connectedComponentLabeling(img)
 	log.Printf("voxels.optimizeSTL(sliceNum=%v, z=%v, voxelRadius=%v): generated %v connected-component labels", sliceNum, z, voxelRadius, len(labels))
 

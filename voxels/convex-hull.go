@@ -5,6 +5,8 @@ import (
 	"sort"
 )
 
+const errorThreshold = 2
+
 func convexHull(path Path, reverse bool) Path {
 	if len(path) == 0 {
 		return nil
@@ -13,10 +15,10 @@ func convexHull(path Path, reverse bool) Path {
 
 	var stack []*keyWithAngle
 	for _, pt := range pts {
-		if sl := len(stack); sl >= 2 && ccw(stack[sl-2], stack[sl-1], pt) < 0 {
-			// log.Printf("pop stack (%q) due to ccw<0 at i=%v pt=%#v", stack[sl-1].key, i, *pt)
-			stack = stack[:sl-1]
-		}
+		// if sl := len(stack); sl >= 2 && ccw(stack[sl-2], stack[sl-1], pt) < 0 {
+		// 	// log.Printf("pop stack (%q) due to ccw<0 at i=%v pt=%#v", stack[sl-1].key, i, *pt)
+		// 	stack = stack[:sl-1]
+		// }
 		for len(stack) >= 2 && ccw(stack[len(stack)-2], stack[len(stack)-1], pt) <= 0 {
 			// log.Printf("pop stack (%q) due to ccw<=0 at i=%v pt=%#v", stack[len(stack)-1].key, i, *pt)
 			stack = stack[:len(stack)-1]
@@ -44,6 +46,12 @@ type keyWithAngle struct {
 	x, y     int
 	angle    float64
 	distance int
+}
+
+func distance(p1, p0, p2 *keyWithAngle) float64 {
+	denom := math.Sqrt(float64((p2.y-p1.y)*(p2.y-p1.y) + (p2.x-p1.x)*(p2.x-p1.x)))
+	numer := math.Abs(float64((p2.y-p1.y)*p0.x - (p2.x-p1.x)*p0.y + p2.x*p1.y - p2.y*p1.x))
+	return numer / denom
 }
 
 func ccw(p1, p2, p3 *keyWithAngle) int {
