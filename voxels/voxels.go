@@ -39,6 +39,7 @@ func Slice(baseFilename string, slicer Slicer) error {
 		}
 
 		c := new(w, slicer)
+		c.optimize = true // new, experimental optimizing STL generator
 
 		if err := slicer.PrepareRenderZ(); err != nil {
 			return fmt.Errorf("PrepareRenderZ: %v", err)
@@ -74,8 +75,9 @@ type TriWriter interface {
 // client represents a voxels-to-STL converter.
 // It implements the irmf.SliceProcessor interface.
 type client struct {
-	w      TriWriter
-	slicer Slicer
+	w        TriWriter
+	slicer   Slicer
+	optimize bool
 
 	// Current normal vector
 	n [3]float32
@@ -117,10 +119,9 @@ func (c *client) newNormal(x, y, z float32) {
 }
 
 func (c *client) ProcessZSlice(sliceNum int, z, voxelRadius float32, img image.Image) error {
-	// labels := connectedComponentLabeling(img)
-	// for _, label := range labels {
-	// 	c.processLabel(label)
-	// }
+	if c.optimize {
+		return c.optimizeSTL(sliceNum, z, voxelRadius, img)
+	}
 
 	min, _ := c.slicer.MBB()
 	depth := float32(z) + c.n[2]*float32(voxelRadius)
