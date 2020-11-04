@@ -64,7 +64,6 @@ func sortByAngle(path Path) []*keyWithAngle {
 	if len(path) == 0 {
 		return nil
 	}
-	sort.Strings(path)
 	startX, startY := parseKey(path[0])
 
 	angles := make([]*keyWithAngle, 0, len(path))
