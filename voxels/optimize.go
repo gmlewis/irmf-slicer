@@ -15,7 +15,7 @@ func (c *client) optimizeSTL(sliceNum int, z, voxelRadius float32, img image.Ima
 	}
 
 	labels := connectedComponentLabeling(img)
-	log.Printf("voxels.optimizeSTL(sliceNum=%v, z=%v, voxelRadius=%v): generated %v connected-component labels", sliceNum, z, voxelRadius, len(labels))
+	// log.Printf("voxels.optimizeSTL(sliceNum=%v, z=%v, voxelRadius=%v): generated %v connected-component labels", sliceNum, z, voxelRadius, len(labels))
 
 	// Generate labels in consistent, repeatable order.
 	keys := make([]int, 0, len(labels))
