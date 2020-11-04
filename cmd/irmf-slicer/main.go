@@ -32,14 +32,15 @@ var (
 	writeBinvox = flag.Bool("binvox", false, "Write binvox files, one per material")
 	writeDLP    = flag.Bool("dlp", false, "Write ChiTuBox .cbddlp files (same as AnyCubic .photon), one per material (default resolution is: X:47.25,Y:47.25,Z:50 microns)")
 	writeSTL    = flag.Bool("stl", false, "Write stl files, one per material")
+	writeSVX    = flag.Bool("svx", false, "Write slices to svx voxel files, one per material (default resolution is 42 microns)")
 	writeZip    = flag.Bool("zip", false, "Write slices to zip files, one per material (default resolution is X:65,Y:60,Z:30 microns)")
 )
 
 func main() {
 	flag.Parse()
 
-	if !*writeBinvox && !*writeDLP && !*writeSTL && !*writeZip {
-		log.Printf("-binvox or -dlp or -stl or -zip must be supplied to generate output. Testing IRMF shader compilation only.")
+	if !*writeBinvox && !*writeDLP && !*writeSTL && !*writeSVX && !*writeZip {
+		log.Printf("-binvox, -dlp, -stl, -svx, or -zip must be supplied to generate output. Testing IRMF shader compilation only.")
 	}
 
 	var xRes, yRes, zRes float32
@@ -89,6 +90,12 @@ func main() {
 			log.Printf("Slicing %v materials into separate STL files (%v slices each)...", slicer.NumMaterials(), slicer.NumZSlices())
 			err = voxels.Slice(baseName, slicer)
 			check("voxels.Slice: %v", err)
+		}
+
+		if *writeSVX {
+			log.Printf("Slicing %v materials into separate SVX files (%v slices each)...", slicer.NumMaterials(), slicer.NumZSlices())
+			err = zipper.SVXSlice(baseName, slicer)
+			check("zipper.SVXSlice: %v", err)
 		}
 
 		if *writeZip {

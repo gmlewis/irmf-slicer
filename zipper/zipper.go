@@ -1,4 +1,5 @@
 // Package zipper is a SliceProcessor that writes its results to one or more ZIP files.
+// It also supports the svx voxel file format. See https://abfab3d.com/svx-format.
 package zipper
 
 import (
@@ -17,7 +18,11 @@ import (
 // Slicer represents a slicer that provides slices of voxels for multiple
 // materials (from an IRMF file).
 type Slicer interface {
+	IRMF() *irmf.IRMF
 	NumMaterials() int
+	NumXSlices() int
+	NumYSlices() int
+	NumZSlices() int
 	MaterialName(materialNum int) string // 1-based
 	MBB() (min, max [3]float32)          // in millimeters
 
@@ -28,10 +33,15 @@ type Slicer interface {
 // Slice slices an IRMF shader into one or more ZIP files
 // containing many voxel slices as PNG images (one file per material).
 func Slice(baseFilename string, slicer Slicer) error {
+	zp := &zipper{fmtStr: "out%04d.png", suffix: "zip"}
+	return processMaterials(baseFilename, slicer, zp)
+}
+
+func processMaterials(baseFilename string, slicer Slicer, baseZipper *zipper) error {
 	for materialNum := 1; materialNum <= slicer.NumMaterials(); materialNum++ {
 		materialName := strings.ReplaceAll(slicer.MaterialName(materialNum), " ", "-")
 
-		zipName := fmt.Sprintf("%v-mat%02d-%v.zip", baseFilename, materialNum, materialName)
+		zipName := fmt.Sprintf("%v-mat%02d-%v.%v", baseFilename, materialNum, materialName, baseZipper.suffix)
 
 		zf, err := os.Create(zipName)
 		if err != nil {
@@ -46,7 +56,12 @@ func Slice(baseFilename string, slicer Slicer) error {
 			return fmt.Errorf("PrepareRenderZ: %v", err)
 		}
 
-		zp := &zipper{w: w}
+		zp := &zipper{w: w, fmtStr: baseZipper.fmtStr, irmf: slicer.IRMF()}
+		if baseZipper.manifest {
+			if err := zp.writeManifest(slicer); err != nil {
+				return err
+			}
+		}
 		if err := slicer.RenderZSlices(materialNum, zp, irmf.MinToMax); err != nil {
 			return err
 		}
@@ -64,14 +79,18 @@ func Slice(baseFilename string, slicer Slicer) error {
 
 // zipper represents a SliceProcessor that writes its results to a ZIP file.
 type zipper struct {
-	w *zip.Writer
+	w        *zip.Writer
+	fmtStr   string
+	irmf     *irmf.IRMF
+	manifest bool
+	suffix   string
 }
 
 // zipper implements the ZSliceProcessor interface.
 var _ irmf.ZSliceProcessor = &zipper{}
 
 func (zp *zipper) ProcessZSlice(n int, z, voxelRadius float32, img image.Image) error {
-	filename := fmt.Sprintf("out%04d.png", n)
+	filename := fmt.Sprintf(zp.fmtStr, n)
 	fh := &zip.FileHeader{
 		Name:     filename,
 		Comment:  fmt.Sprintf("z=%0.2f", z),

@@ -50,6 +50,10 @@ func (s *Slicer) NewModel(shaderSrc []byte) error {
 	return err
 }
 
+func (s *Slicer) IRMF() *IRMF {
+	return s.irmf
+}
+
 // Close closes the GLFW window and releases any Slicer resources.
 func (s *Slicer) Close() {
 	glfw.Terminate()
