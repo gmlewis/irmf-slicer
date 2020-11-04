@@ -1,16 +1,12 @@
 package voxels
 
-import "log"
-
 type concavityChecker struct {
 	hullPath  Path
 	fullPath  Path
 	finalPath Path
 }
 
-const concavityErrorVoxelThreshold = 2
-
-func correctConcavity(hullPath, fullPath Path) Path {
+func correctConcavity(hullPath, fullPath Path, threshold float64) Path {
 	if len(hullPath) <= 3 {
 		return hullPath
 	}
@@ -27,7 +23,7 @@ func correctConcavity(hullPath, fullPath Path) Path {
 			continue
 		}
 
-		inner = cc.check(inner, outer, concavityErrorVoxelThreshold)
+		inner = cc.check(inner, outer, threshold)
 	}
 
 	return cc.finalPath
@@ -43,10 +39,10 @@ func (cc *concavityChecker) check(inner, outer int, threshold float64) int {
 			return inner + i + 1
 		}
 
-		log.Printf("len(cc.finalPath)=%v", len(cc.finalPath))
+		// log.Printf("len(cc.finalPath)=%v", len(cc.finalPath))
 		label1 := cc.finalPath[len(cc.finalPath)-1]
 		error := distanceUsingLabels(label1, label0, p2)
-		log.Printf("distanceUsingLabels(%q,%q,%q) = %v", label1, label0, label2, error)
+		// log.Printf("distanceUsingLabels(%q,%q,%q) = %v", label1, label0, label2, error)
 		if error >= threshold {
 			cc.finalPath = append(cc.finalPath, label0)
 		}

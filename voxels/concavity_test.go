@@ -53,9 +53,10 @@ func TestCorrectConcavity(t *testing.T) {
 		},
 	}
 
+	const threshold = 2
 	for i, tt := range tests {
 		t.Run(fmt.Sprintf("test #%v", i), func(t *testing.T) {
-			got := correctConcavity(tt.hullPath, tt.fullPath)
+			got := correctConcavity(tt.hullPath, tt.fullPath, threshold)
 
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("correctConcavity =\n%#v\nwant:\n%#v", got, tt.want)
@@ -134,7 +135,7 @@ func TestCheck(t *testing.T) {
 		},
 	}
 
-	const threshold = 2.0
+	const threshold = 2
 	for i, tt := range tests {
 		t.Run(fmt.Sprintf("test #%v", i), func(t *testing.T) {
 			got := cc.check(tt.inner, tt.outer, threshold)

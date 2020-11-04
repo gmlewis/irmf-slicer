@@ -4,7 +4,10 @@ import (
 	"image"
 	"log"
 	"sort"
+	"sync"
 )
+
+const concavityErrorVoxelThreshold = 2
 
 func (c *client) optimizeSTL(sliceNum int, z, voxelRadius float32, img image.Image) error {
 	if c.n[2] < 0 { // temporarily for debugging
@@ -26,23 +29,43 @@ func (c *client) optimizeSTL(sliceNum int, z, voxelRadius float32, img image.Ima
 	vr := float32(voxelRadius)
 	vr2 := float32(2.0 * voxelRadius)
 
-	for _, key := range keys {
-		label := labels[key]
-		log.Printf("Processing label #%v: %v pixels", key, len(label.pixels))
-		edges := findEdges(label)
-		log.Printf("found %v edges", len(edges))
-		paths := edgesToPaths(edges)
-		log.Printf("found %v paths", len(paths))
-		for i, path := range paths {
-			hullPath := convexHull(path, i > 0)
-			log.Printf("hull path #%v: %v points in path", i, len(hullPath))
-			finalPath := correctConcavity(hullPath, path)
-			log.Printf("final path #%v: %v points in path", i, len(finalPath))
-			if err := c.writePath(finalPath, min, depth, vr, vr2); err != nil {
-				return err
-			}
+	processPath := func(i int, path Path) {
+		hullPath := convexHull(path, i > 0)
+		// log.Printf("hull path #%v: %v points in path", i, len(hullPath))
+		finalPath := correctConcavity(hullPath, path, concavityErrorVoxelThreshold)
+		// log.Printf("final path #%v: %v points in path", i, len(finalPath))
+		if err := c.writePath(finalPath, min, depth, vr, vr2); err != nil {
+			log.Fatalf("c.writePath: %v", err)
 		}
 	}
 
+	var wg sync.WaitGroup
+	for _, key := range keys {
+		label := labels[key]
+		// log.Printf("Processing label #%v: %v pixels", key, len(label.pixels))
+		wg.Add(1)
+		go func() {
+			processLabel(label, processPath)
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+
 	return nil
+}
+
+func processLabel(label *Label, processPath func(int, Path)) {
+	edges := findEdges(label)
+	// log.Printf("found %v edges", len(edges))
+	paths := edgesToPaths(edges)
+	// log.Printf("found %v paths", len(paths))
+	var wg sync.WaitGroup
+	for i, path := range paths {
+		wg.Add(1)
+		go func(i int, path Path) {
+			processPath(i, path)
+			wg.Done()
+		}(i, path)
+	}
+	wg.Wait()
 }
