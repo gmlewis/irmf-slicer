@@ -39,7 +39,7 @@ func (zp *zipper) writeManifest(slicer Slicer) error {
 var manifestFmt = `<?xml version="1.0"?>
 
 <grid version="1.0" gridSizeX="%v" gridSizeY="%v" gridSizeZ="%v"
-   voxelSize="%v" subvoxelBits="8" slicesOrientation="Z" >
+   voxelSize="%0.6f" subvoxelBits="8" slicesOrientation="Z" >
 
     <channels>
         <channel type="DENSITY" bits="8" slices="density/slice%%04d.png" />
