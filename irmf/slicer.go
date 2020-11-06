@@ -277,12 +277,12 @@ func (s *Slicer) renderSlice(sliceDepth float32, materialNum int) (image.Image, 
 	gl.DrawArrays(gl.TRIANGLES, 0, 2*3) // 6*2*3)
 
 	width, height := s.window.GetFramebufferSize()
-	rgba := &image.RGBA{
-		Pix:    make([]uint8, width*height*4),
-		Stride: width * 4, // bytes between vertically adjacent pixels.
+	gray := &image.Gray{
+		Pix:    make([]uint8, width*height),
+		Stride: width, // bytes between vertically adjacent pixels.
 		Rect:   image.Rect(0, 0, width, height),
 	}
-	gl.ReadPixels(0, 0, int32(width), int32(height), gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(&rgba.Pix[0]))
+	gl.ReadPixels(0, 0, int32(width), int32(height), gl.RED, gl.UNSIGNED_BYTE, gl.Ptr(&gray.Pix[0]))
 
 	// The error appears to be related to unused variables, but it doesn't affect anything.
 	// if gl.GetError() != gl.NO_ERROR {
@@ -293,7 +293,7 @@ func (s *Slicer) renderSlice(sliceDepth float32, materialNum int) (image.Image, 
 	s.window.SwapBuffers()
 	glfw.PollEvents()
 
-	return rgba, nil
+	return gray, nil
 }
 
 // PrepareRenderX prepares the GPU to render along the X axis.
