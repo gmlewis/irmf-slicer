@@ -142,7 +142,11 @@ const (
 
 // NumXSlices returns the number of slices in the X direction.
 func (s *Slicer) NumXSlices() int {
-	return int(0.5 + (s.irmf.Max[0]-s.irmf.Min[0])/s.deltaX)
+	n := int(0.5 + (s.irmf.Max[0]-s.irmf.Min[0])/s.deltaX)
+	if n%2 == 1 {
+		n++
+	}
+	return n
 }
 
 // RenderXSlices slices the given materialNum (1-based index)
@@ -183,7 +187,12 @@ func (s *Slicer) RenderXSlices(materialNum int, sp XSliceProcessor, order Order)
 
 // NumYSlices returns the number of slices in the Y direction.
 func (s *Slicer) NumYSlices() int {
-	return int(0.5 + (s.irmf.Max[1]-s.irmf.Min[1])/s.deltaY)
+	nx := int(0.5 + (s.irmf.Max[0]-s.irmf.Min[0])/s.deltaX)
+	ny := int(0.5 + (s.irmf.Max[1]-s.irmf.Min[1])/s.deltaY)
+	if nx%2 == 1 {
+		ny++
+	}
+	return ny
 }
 
 // RenderYSlices slices the given materialNum (1-based index)
@@ -277,6 +286,9 @@ func (s *Slicer) renderSlice(sliceDepth float32, materialNum int) (image.Image, 
 	gl.DrawArrays(gl.TRIANGLES, 0, 2*3) // 6*2*3)
 
 	width, height := s.window.GetFramebufferSize()
+	if width%2 == 1 {
+		width++
+	}
 	gray := &image.Gray{
 		Pix:    make([]uint8, width*height),
 		Stride: width, // bytes between vertically adjacent pixels.
@@ -372,6 +384,11 @@ func (s *Slicer) PrepareRenderZ() error {
 }
 
 func (s *Slicer) prepareRender(newWidth, newHeight int, left, right, bottom, top float32, camera mgl32.Mat4, vec3Str string, planeVertices []float32) error {
+	if newWidth%2 == 1 {
+		newWidth++
+		newHeight++
+	}
+
 	// Create or resize window if necessary.
 	near, far := float32(0.1), float32(100.0)
 	resize := (s.width != newWidth || s.height != newHeight)
