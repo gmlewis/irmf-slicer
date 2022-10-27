@@ -67,7 +67,7 @@ however, this slicer will no longer be needed.
 
 ## How do I install it?
 
-After you have a recent version of [Go](https://golang.org/) installed,
+After you have a recent version of [Go](https://go.dev/) installed,
 run the following command in a terminal window:
 
 ```sh
