@@ -273,6 +273,10 @@ func (s *Slicer) RenderZSlices(materialNum int, sp ZSliceProcessor, order Order)
 }
 
 func (s *Slicer) renderSlice(sliceDepth float32, materialNum int) (image.Image, error) {
+	if e := gl.GetError(); e != gl.NO_ERROR {
+		fmt.Printf("renderSlice, before gl.Clear: GL ERROR: %v", e)
+	}
+
 	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
 	// Render
@@ -285,27 +289,27 @@ func (s *Slicer) renderSlice(sliceDepth float32, materialNum int) (image.Image, 
 
 	gl.DrawArrays(gl.TRIANGLES, 0, 2*3) // 6*2*3)
 
-	width, height := s.window.GetFramebufferSize()
-	if width%2 == 1 {
-		width++
+	if e := gl.GetError(); e != gl.NO_ERROR {
+		fmt.Printf("renderSlice, after gl.DrawArrays: GL ERROR: %v", e)
 	}
-	gray := &image.Gray{
-		Pix:    make([]uint8, width*height),
-		Stride: width, // bytes between vertically adjacent pixels.
+
+	width, height := s.window.GetFramebufferSize()
+	rgba := &image.RGBA{
+		Pix:    make([]uint8, width*height*4),
+		Stride: width * 4, // bytes between vertically adjacent pixels.
 		Rect:   image.Rect(0, 0, width, height),
 	}
-	gl.ReadPixels(0, 0, int32(width), int32(height), gl.RED, gl.UNSIGNED_BYTE, gl.Ptr(&gray.Pix[0]))
+	gl.ReadPixels(0, 0, int32(width), int32(height), gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(&rgba.Pix[0]))
 
-	// The error appears to be related to unused variables, but it doesn't affect anything.
-	// if gl.GetError() != gl.NO_ERROR {
-	// 	fmt.Println("GL ERROR Somewhere!")
-	// }
+	if e := gl.GetError(); e != gl.NO_ERROR {
+		fmt.Printf("renderSlice, after gl.ReadPixels: GL ERROR: %v", e)
+	}
 
 	// Maintenance
 	s.window.SwapBuffers()
 	glfw.PollEvents()
 
-	return gray, nil
+	return rgba, nil
 }
 
 // PrepareRenderX prepares the GPU to render along the X axis.
