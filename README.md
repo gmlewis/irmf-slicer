@@ -74,13 +74,6 @@ run the following command in a terminal window:
 $ go install github.com/gmlewis/irmf-slicer/cmd/irmf-slicer
 ```
 
-(Prior to Go 1.13, you would use:
-
-```sh
-$ GO111MODULE=on go install github.com/gmlewis/irmf-slicer/cmd/irmf-slicer
-```
-)
-
 Then you might want to try it out on some of the [example IRMF
 shaders](https://github.com/gmlewis/irmf#examples) located on GitHub.
 
@@ -90,6 +83,9 @@ like this:
 ```sh
 $ irmf-slicer -view -stl examples/*/*.irmf
 ```
+
+The output files will be saved in the same directory as the original
+input IRMF files.
 
 ## How does it work?
 
