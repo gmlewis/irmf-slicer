@@ -9,6 +9,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
+	"net/http"
 	"regexp"
 	"strings"
 )
@@ -102,6 +104,8 @@ func newModel(src []byte) (*IRMF, error) {
 	} else {
 		jsonBlob.Shader = string(shaderSrcBuf)
 	}
+
+	jsonBlob.Shader = processIncludes(jsonBlob.Shader)
 
 	if lineNum, err := jsonBlob.validate(jsonBlobStr, jsonBlob.Shader); err != nil {
 		return nil, fmt.Errorf("invalid JSON blob on line %v: %v", lineNum, err)
@@ -208,4 +212,72 @@ func (i *IRMF) format(shaderSrc string) (string, error) {
 	})
 
 	return fmt.Sprintf("/*%v*/\n%v", jsonBlob, shaderSrc), nil
+}
+
+func curl(url string) ([]byte, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		log.Printf("Unable to download source from: %v", url)
+		return nil, nil
+	}
+	defer resp.Body.Close()
+
+	buf, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("Unable to read response body.")
+		return nil, nil
+	}
+	log.Printf("Read %v bytes from %v", len(buf), url)
+
+	return buf, nil
+}
+
+var (
+	includeRE = regexp.MustCompile(`^#include\s+"([^"]+)"`)
+)
+
+const (
+	lygiaBaseURL = "https://lygia.xyz"
+	prefix1      = "lygia.xyz/"
+	prefix2      = "lygia/"
+)
+
+func parseIncludeURL(trimmed string) string {
+	m := includeRE.FindStringSubmatch(trimmed)
+	if len(m) < 2 {
+		return ""
+	}
+
+	inc := m[1]
+	switch {
+	case strings.HasPrefix(inc, prefix1):
+		return fmt.Sprintf("%v/%v", lygiaBaseURL, inc[len(prefix1):])
+	case strings.HasPrefix(inc, prefix2):
+		return fmt.Sprintf("%v/%v", lygiaBaseURL, inc[len(prefix2):])
+	default:
+		return ""
+	}
+}
+
+// processIncludes converts "#include" lines (with recognized prefixes)
+// into their actual source by retrieving them from the internet.
+// Note that multiline comments ("/*" and "*/") are currently not supported.
+// It is recommended that an ignored "#include" statement should be commented-out
+// with single-line comments ("//...").
+func processIncludes(source string) string {
+	lines := strings.Split(source, "\n")
+	var result []string
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if url := parseIncludeURL(trimmed); url != "" {
+			if buf, err := curl(url); err == nil {
+				result = append(result, string(buf))
+			}
+			continue
+		}
+
+		result = append(result, line)
+	}
+
+	return strings.Join(result, "\n")
 }
