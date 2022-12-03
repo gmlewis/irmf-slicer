@@ -16,19 +16,24 @@ func TestParseIncludeURL(t *testing.T) {
 			trimmed: `#include "bad/include.h"`,
 		},
 		{
-			name:    "normal",
+			name:    "lygia normal",
 			trimmed: `#include "lygia/math/decimation.glsl"`,
 			want:    "https://lygia.xyz/math/decimation.glsl",
 		},
 		{
-			name:    "extra space",
+			name:    "lygia extra space",
 			trimmed: `#include    "lygia/math/decimation.glsl"`,
 			want:    "https://lygia.xyz/math/decimation.glsl",
 		},
 		{
-			name:    "accidental copy/paste",
+			name:    "lygia accidental copy/paste",
 			trimmed: `#include "lygia.xyz/math/decimation.glsl"`,
 			want:    "https://lygia.xyz/math/decimation.glsl",
+		},
+		{
+			name:    "github normal",
+			trimmed: `#include "github.com/gmlewis/irmf-examples/blob/master/examples/012-bifilar-electromagnet/rotation.glsl"`,
+			want:    "https://raw.githubusercontent.com/gmlewis/irmf-examples/master/examples/012-bifilar-electromagnet/rotation.glsl",
 		},
 	}
 

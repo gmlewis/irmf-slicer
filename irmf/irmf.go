@@ -237,9 +237,11 @@ var (
 )
 
 const (
-	lygiaBaseURL = "https://lygia.xyz"
-	prefix1      = "lygia.xyz/"
-	prefix2      = "lygia/"
+	githubRawPrefix = "https://raw.githubusercontent.com/"
+	lygiaBaseURL    = "https://lygia.xyz"
+	prefix1         = "lygia.xyz/"
+	prefix2         = "lygia/"
+	prefix3         = "github.com/"
 )
 
 func parseIncludeURL(trimmed string) string {
@@ -249,11 +251,19 @@ func parseIncludeURL(trimmed string) string {
 	}
 
 	inc := m[1]
+	if !strings.HasSuffix(inc, ".glsl") {
+		return ""
+	}
+
 	switch {
 	case strings.HasPrefix(inc, prefix1):
 		return fmt.Sprintf("%v/%v", lygiaBaseURL, inc[len(prefix1):])
 	case strings.HasPrefix(inc, prefix2):
 		return fmt.Sprintf("%v/%v", lygiaBaseURL, inc[len(prefix2):])
+	case strings.HasPrefix(inc, prefix3):
+		location := inc[len(prefix3):]
+		location = strings.Replace(location, "/blob/", "/", 1)
+		return githubRawPrefix + location
 	default:
 		return ""
 	}
