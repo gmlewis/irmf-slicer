@@ -7,28 +7,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-    - name: Set up Go 1.20
-      uses: actions/setup-go@v1
+    - uses: actions/checkout@v3
+    - uses: actions/setup-go@v4
       with:
-        go-version: 1.20
-      id: go
-
-    - name: Perform updates
-      run: sudo apt-get update
+        go-version: 1.20.x
 
     - name: Get GLFW dependencies - https://github.com/go-gl/glfw/blob/master/README.md
-      run: sudo apt-get install -y libgl1-mesa-dev xorg-dev
-
-    - name: Check out code into the Go module directory
-      uses: actions/checkout@v1
+      run: sudo apt-get update && sudo apt-get install -y libgl1-mesa-dev xorg-dev
 
     - name: Get dependencies
       run: |
         go get -v -t -d ./...
-        if [ -f Gopkg.toml ]; then
-            curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
-            dep ensure
-        fi
 
     - name: Generate
       run: go generate -v ./...
@@ -38,6 +27,3 @@ jobs:
 
     - name: Test
       run: go test -v ./...
-
-    - name: Build
-      run: go build -v ./...
