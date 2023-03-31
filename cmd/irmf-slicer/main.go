@@ -16,11 +16,11 @@ import (
 	"log"
 	"strings"
 
-	"github.com/gmlewis/irmf-slicer/binvox"
-	"github.com/gmlewis/irmf-slicer/irmf"
-	"github.com/gmlewis/irmf-slicer/photon"
-	"github.com/gmlewis/irmf-slicer/voxels"
-	"github.com/gmlewis/irmf-slicer/zipper"
+	"github.com/gmlewis/irmf-slicer/v3/binvox"
+	"github.com/gmlewis/irmf-slicer/v3/irmf"
+	"github.com/gmlewis/irmf-slicer/v3/photon"
+	"github.com/gmlewis/irmf-slicer/v3/voxels"
+	"github.com/gmlewis/irmf-slicer/v3/zipper"
 )
 
 const defaultRes = 42

@@ -8,7 +8,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/gmlewis/irmf-slicer/irmf"
+	"github.com/gmlewis/irmf-slicer/v3/irmf"
 	"github.com/gmlewis/stldice/v4/binvox"
 )
 

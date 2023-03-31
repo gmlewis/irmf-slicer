@@ -1,6 +1,6 @@
 # [IRMF Shader](https://github.com/gmlewis/irmf) Slicer
 
-[![Test Status](https://github.com/gmlewis/irmf-slicer/workflows/Go/badge.svg)](https://github.com/gmlewis/irmf-slicer/actions?query=workflow%3AGo)
+[![Test Status](https://github.com/gmlewis/irmf-slicer/v3/workflows/Go/badge.svg)](https://github.com/gmlewis/irmf-slicer/v3/actions?query=workflow%3AGo)
 
 ![IRMF slicer demo](irmf-slicer-demo.gif)
 
@@ -71,7 +71,7 @@ After you have a recent version of [Go](https://go.dev/) installed,
 run the following command in a terminal window:
 
 ```sh
-$ go install github.com/gmlewis/irmf-slicer/cmd/irmf-slicer
+$ go install github.com/gmlewis/irmf-slicer/v3/cmd/irmf-slicer
 ```
 
 Then you might want to try it out on some of the [example IRMF

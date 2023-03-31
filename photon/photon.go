@@ -15,7 +15,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/gmlewis/irmf-slicer/irmf"
+	"github.com/gmlewis/irmf-slicer/v3/irmf"
 )
 
 // Slicer represents a slicer that provides slices of voxels for multiple
