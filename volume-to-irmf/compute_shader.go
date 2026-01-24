@@ -3,14 +3,18 @@ package volumetoirmf
 const computeShaderSource = `
 struct Primitive {
     p_type: u32,
-    center: vec3f,
+    centerX: f32,
+    centerY: f32,
+    centerZ: f32,
     size: f32,
     operation: u32,
 };
 
 struct ModelData {
     num_primitives: u32,
-    padding: vec3u,
+    paddingX: u32,
+    paddingY: u32,
+    paddingZ: u32,
     primitives: array<Primitive, 1024>,
 };
 
@@ -29,15 +33,17 @@ struct Config {
     ny: u32,
     nz: u32,
     voxel_size: f32,
-    min: vec3f,
+    minX: f32,
+    minY: f32,
+    minZ: f32,
     padding: f32,
 };
 
 @group(0) @binding(3) var<uniform> config: Config;
 
-var<workgroup> wg_mse: array<f32, 512>;
-var<workgroup> wg_inter: array<f32, 512>;
-var<workgroup> wg_union: array<f32, 512>;
+var<workgroup> wg_mse: array<f32, 256>;
+var<workgroup> wg_inter: array<f32, 256>;
+var<workgroup> wg_union: array<f32, 256>;
 
 fn sdSphere(p: vec3f, r: f32) -> f32 {
     return length(p) - r;
@@ -59,7 +65,7 @@ fn get_target(x: u32, y: u32, z: u32) -> f32 {
     return 0.0;
 }
 
-@compute @workgroup_size(8, 8, 8)
+@compute @workgroup_size(8, 8, 4)
 fn main(
     @builtin(global_invocation_id) global_id: vec3u,
     @builtin(local_invocation_index) local_idx: u32,
@@ -75,16 +81,17 @@ fn main(
     var uni = 0.0;
 
     if (x < config.nx && y < config.ny && z < config.nz) {
-        let p = config.min + vec3f(global_id) * config.voxel_size + vec3f(config.voxel_size * 0.5);
+        let p = vec3f(config.minX, config.minY, config.minZ) + vec3f(global_id) * config.voxel_size + vec3f(config.voxel_size * 0.5);
         
         var d = 1e10;
         for (var i = 0u; i < model.num_primitives; i = i + 1u) {
             let prim = model.primitives[i];
+            let center = vec3f(prim.centerX, prim.centerY, prim.centerZ);
             var dist = 0.0;
             if (prim.p_type == 0u) { // Sphere
-                dist = sdSphere(p - prim.center, prim.size);
+                dist = sdSphere(p - center, prim.size);
             } else { // Cube
-                dist = sdBox(p - prim.center, vec3f(prim.size));
+                dist = sdBox(p - center, vec3f(prim.size));
             }
 
             if (i == 0u) {
@@ -113,7 +120,7 @@ fn main(
     workgroupBarrier();
 
     // Reduction within workgroup
-    for (var i = 256u; i > 0u; i = i >> 1u) {
+    for (var i = 128u; i > 0u; i = i >> 1u) {
         if (local_idx < i) {
             wg_mse[local_idx] = wg_mse[local_idx] + wg_mse[local_idx + i];
             wg_inter[local_idx] = wg_inter[local_idx] + wg_inter[local_idx + i];

@@ -93,7 +93,7 @@ func NewEvaluator(device *wgpu.Device, nx, ny, nz uint32, voxelSize float32, min
 
 	e.numWGs[0] = (nx + 7) / 8
 	e.numWGs[1] = (ny + 7) / 8
-	e.numWGs[2] = (nz + 7) / 8
+	e.numWGs[2] = (nz + 3) / 4
 	numWgsTotal := e.numWGs[0] * e.numWGs[1] * e.numWGs[2]
 
 	e.resultBuffer, err = device.CreateBuffer(&wgpu.BufferDescriptor{
