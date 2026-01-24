@@ -70,78 +70,62 @@ func (o *Optimizer) Optimize() error {
 	// 1. Initialize with a single primitive that matches the bounding box.
 	o.initialize()
 
+	err, currentErr := o.evaluate()
+	if err != nil {
+		return err
+	}
+
 	// 2. Iterative refinement.
 	for i := 0; i < o.MaxIterations; i++ {
-		err, errVal := o.evaluate()
-		if err != nil {
-			return err
-		}
-		if errVal < o.TargetError {
+		if currentErr < o.TargetError {
 			break
 		}
 
-		o.step()
+		currentErr = o.step(currentErr)
 	}
 
 	return nil
 }
 
-func (o *Optimizer) initialize() {
-	minX, minY, minZ := o.Target.MinX, o.Target.MinY, o.Target.MinZ
-	scale := o.Target.Scale
-	centerX := float32(minX + scale/2)
-	centerY := float32(minY + scale/2)
-	centerZ := float32(minZ + scale/2)
-
-	o.Model.Primitives = append(o.Model.Primitives, Primitive{
-		Type:      Sphere,
-		Center:    [3]float32{centerX, centerY, centerZ},
-		Size:      float32(scale / 2),
-		Operation: Union,
-	})
-}
-
-func (o *Optimizer) evaluate() (error, float32) {
-	mse, iou, err := o.Evaluator.Evaluate(o.Model)
-	if err != nil {
-		return err, 0
-	}
-
-	// Reward function R = -(alpha * MSE + beta * (1 - IoU))
-	// We want to minimize error = alpha * MSE + beta * (1 - IoU)
-	errorVal := o.Alpha*mse + o.Beta*(1.0-iou)
-	return nil, errorVal
-}
-
-func (o *Optimizer) step() {
+func (o *Optimizer) step(oldErr float32) float32 {
 	// Propose a random mutation.
-	// This is a very simple hill-climbing step for now.
 	if len(o.Model.Primitives) == 0 {
-		return
+		return oldErr
 	}
 
 	idx := rand.Intn(len(o.Model.Primitives))
 	oldP := o.Model.Primitives[idx]
 
 	// Mutate
-	o.Model.Primitives[idx].Center[0] += (rand.Float32() - 0.5) * 0.1
-	o.Model.Primitives[idx].Center[1] += (rand.Float32() - 0.5) * 0.1
-	o.Model.Primitives[idx].Center[2] += (rand.Float32() - 0.5) * 0.1
-	o.Model.Primitives[idx].Size += (rand.Float32() - 0.5) * 0.1
+	mutationScale := float32(o.Target.Scale) * 0.05
+	o.Model.Primitives[idx].Center[0] += (rand.Float32() - 0.5) * mutationScale
+	o.Model.Primitives[idx].Center[1] += (rand.Float32() - 0.5) * mutationScale
+	o.Model.Primitives[idx].Center[2] += (rand.Float32() - 0.5) * mutationScale
+	o.Model.Primitives[idx].Size += (rand.Float32() - 0.5) * mutationScale
+	if o.Model.Primitives[idx].Size < 0 {
+		o.Model.Primitives[idx].Size = 0.01
+	}
 
 	// Evaluate
-	_, newErr := o.evaluate()
-	_, oldErr := o.evaluate() // This is inefficient, should cache.
+	err, newErr := o.evaluate()
+	if err != nil {
+		// Revert on error
+		o.Model.Primitives[idx] = oldP
+		return oldErr
+	}
 
-	if newErr > oldErr {
+	if newErr >= oldErr {
 		// Revert
 		o.Model.Primitives[idx] = oldP
+		return oldErr
 	}
 
 	// Occasionally add a new primitive if we are stuck.
-	if rand.Float32() < 0.01 {
+	if rand.Float32() < 0.05 {
 		o.addPrimitive()
 	}
+
+	return newErr
 }
 
 func (o *Optimizer) addPrimitive() {
