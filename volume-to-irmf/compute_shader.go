@@ -98,12 +98,12 @@ fn main(
             }
         }
 
-        let target = get_target(x, y, z);
+        let trgt = get_target(x, y, z);
         let current = select(0.0, 1.0, d <= 0.0);
 
-        mse = (target - current) * (target - current);
-        inter = min(target, current);
-        uni = max(target, current);
+        mse = (trgt - current) * (trgt - current);
+        inter = min(trgt, current);
+        uni = max(trgt, current);
     }
 
     wg_mse[local_idx] = mse;
