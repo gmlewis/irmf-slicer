@@ -21,7 +21,7 @@ func main() {
 	ny := flag.Int("ny", 256, "Resolution Y")
 	nz := flag.Int("nz", 256, "Resolution Z")
 	scale := flag.Float64("scale", 100.0, "Scale (max dimension in mm)")
-																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																							*iters := flag.Int("iters", 1000, "Maximum iterations")
+	iters := flag.Int("iters", 1000, "Maximum iterations")
 	targetErr := flag.Float64("err", 0.01, "Target error")
 	flag.Parse()
 
@@ -76,8 +76,8 @@ func main() {
 		IRMFVersion: "1.0",
 		Language:    "wgsl",
 		Materials:   []string{"Material 1"},
-		Min:         []float32{float32(b.MinX), float32(b.MinY), float32(b.MinZ)},
-		Max:         []float32{float32(b.MinX + b.Scale), float32(b.MinY + b.Scale), float32(b.MinZ + b.Scale)},
+		Min:         []float32{float32(b.TX), float32(b.TY), float32(b.TZ)},
+		Max:         []float32{float32(b.TX + b.Scale), float32(b.TY + b.Scale), float32(b.TZ + b.Scale)},
 		Units:       "mm",
 	}
 

@@ -17,7 +17,7 @@ import (
 func main() {
 	input := flag.String("input", "", "Input .binvox file")
 	output := flag.String("output", "", "Output .irmf file")
-			iters := flag.Int("iters", 1000, "Maximum iterations")
+	iters := flag.Int("iters", 1000, "Maximum iterations")
 	targetErr := flag.Float64("err", 0.01, "Target error")
 	flag.Parse()
 
@@ -48,7 +48,7 @@ func main() {
 	defer device.Release()
 
 	// 2. Load binvox
-	b, err := binvox.Read(*input)
+	b, err := binvox.Read(*input, 0, 0, 0, 0, 0, 0)
 	if err != nil {
 		log.Fatalf("failed to read binvox: %v", err)
 	}
@@ -72,8 +72,8 @@ func main() {
 		IRMFVersion: "1.0",
 		Language:    "wgsl",
 		Materials:   []string{"Material 1"},
-		Min:         []float32{float32(b.MinX), float32(b.MinY), float32(b.MinZ)},
-		Max:         []float32{float32(b.MinX + b.Scale), float32(b.MinY + b.Scale), float32(b.MinZ + b.Scale)},
+		Min:         []float32{float32(b.TX), float32(b.TY), float32(b.TZ)},
+		Max:         []float32{float32(b.TX + b.Scale), float32(b.TY + b.Scale), float32(b.TZ + b.Scale)},
 		Units:       "mm",
 	}
 
@@ -84,7 +84,6 @@ func main() {
 	}
 	defer f.Close()
 
-	// IRMF format is /*{ JSON }*/ SHADER
 	fmt.Fprintf(f, "/*{\n")
 	jsonBuf, _ := json.MarshalIndent(irmfModel, "", "  ")
 	fmt.Fprintf(f, "%s\n}*/\n", jsonBuf)

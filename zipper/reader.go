@@ -7,7 +7,6 @@ import (
 	"image"
 	_ "image/jpeg"
 	"image/png"
-	"io"
 	"os"
 	"path/filepath"
 	"sort"

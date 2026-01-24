@@ -21,7 +21,7 @@ func main() {
 	ny := flag.Int("ny", 256, "Resolution Y")
 	nz := flag.Int("nz", 256, "Resolution Z")
 	scale := flag.Float64("scale", 100.0, "Scale (max dimension in mm)")
-		iters := flag.Int("iters", 1000, "Maximum iterations")
+	iters := flag.Int("iters", 1000, "Maximum iterations")
 	targetErr := flag.Float64("err", 0.01, "Target error")
 	flag.Parse()
 
@@ -29,7 +29,7 @@ func main() {
 		log.Fatal("-input is required")
 	}
 	if *output == "" {
-		*output = strings.TrimSuffix(strings.TrimSuffix(*input, "/"), \\") + ".irmf"
+		*output = strings.TrimRight(*input, "/\\") + ".irmf"
 	}
 
 	// 1. Initialize WebGPU

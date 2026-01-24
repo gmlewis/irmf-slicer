@@ -1,7 +1,6 @@
 package volumetoirmf
 
 import (
-	"fmt"
 	"math/rand"
 
 	"github.com/cogentcore/webgpu/wgpu"
@@ -26,8 +25,8 @@ type Optimizer struct {
 // NewOptimizer creates a new optimizer for a target voxel model.
 func NewOptimizer(device *wgpu.Device, target *binvox.BinVOX) (*Optimizer, error) {
 	nx, ny, nz := uint32(target.NX), uint32(target.NY), uint32(target.NZ)
-	voxelSize := float32(target.Scale / float64(target.NZ)) // Scale is usually max dimension or similar
-	min := [3]float32{float32(target.MinX), float32(target.MinY), float32(target.MinZ)}
+	voxelSize := float32(target.Scale / float64(target.NZ))
+	min := [3]float32{float32(target.TX), float32(target.TY), float32(target.TZ)}
 
 	targetData := convertTargetData(target)
 
@@ -55,7 +54,7 @@ func convertTargetData(target *binvox.BinVOX) []uint32 {
 	for z := 0; z < target.NZ; z++ {
 		for y := 0; y < target.NY; y++ {
 			for x := 0; x < target.NX; x++ {
-				if target.Get(x, y, z) {
+				if _, ok := target.Get(x, y, z); ok {
 					idx := z*(target.NX*target.NY) + y*target.NX + x
 					data[idx/32] |= (1 << (uint(idx) % 32))
 				}
@@ -87,8 +86,32 @@ func (o *Optimizer) Optimize() error {
 	return nil
 }
 
+func (o *Optimizer) initialize() {
+	minX, minY, minZ := o.Target.TX, o.Target.TY, o.Target.TZ
+	scale := o.Target.Scale
+	centerX := float32(minX + scale/2)
+	centerY := float32(minY + scale/2)
+	centerZ := float32(minZ + scale/2)
+
+	o.Model.Primitives = append(o.Model.Primitives, Primitive{
+		Type:      Sphere,
+		Center:    [3]float32{centerX, centerY, centerZ},
+		Size:      float32(scale / 2),
+		Operation: Union,
+	})
+}
+
+func (o *Optimizer) evaluate() (error, float32) {
+	mse, iou, err := o.Evaluator.Evaluate(o.Model)
+	if err != nil {
+		return err, 0
+	}
+
+	errorVal := o.Alpha*mse + o.Beta*(1.0-iou)
+	return nil, errorVal
+}
+
 func (o *Optimizer) step(oldErr float32) float32 {
-	// Propose a random mutation.
 	if len(o.Model.Primitives) == 0 {
 		return oldErr
 	}
@@ -96,7 +119,6 @@ func (o *Optimizer) step(oldErr float32) float32 {
 	idx := rand.Intn(len(o.Model.Primitives))
 	oldP := o.Model.Primitives[idx]
 
-	// Mutate
 	mutationScale := float32(o.Target.Scale) * 0.05
 	o.Model.Primitives[idx].Center[0] += (rand.Float32() - 0.5) * mutationScale
 	o.Model.Primitives[idx].Center[1] += (rand.Float32() - 0.5) * mutationScale
@@ -106,21 +128,17 @@ func (o *Optimizer) step(oldErr float32) float32 {
 		o.Model.Primitives[idx].Size = 0.01
 	}
 
-	// Evaluate
 	err, newErr := o.evaluate()
 	if err != nil {
-		// Revert on error
 		o.Model.Primitives[idx] = oldP
 		return oldErr
 	}
 
 	if newErr >= oldErr {
-		// Revert
 		o.Model.Primitives[idx] = oldP
 		return oldErr
 	}
 
-	// Occasionally add a new primitive if we are stuck.
 	if rand.Float32() < 0.05 {
 		o.addPrimitive()
 	}
@@ -129,8 +147,6 @@ func (o *Optimizer) step(oldErr float32) float32 {
 }
 
 func (o *Optimizer) addPrimitive() {
-	// Add a small sphere at a random location within the target.
-	// In a real implementation, we'd pick a location with high error.
 	o.Model.Primitives = append(o.Model.Primitives, Primitive{
 		Type:      Sphere,
 		Center:    o.Model.Primitives[0].Center,
