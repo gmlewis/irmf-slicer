@@ -1,6 +1,6 @@
 module github.com/gmlewis/irmf-slicer/v3
 
-go 1.25
+go 1.25.0
 
 require (
 	github.com/cogentcore/webgpu v0.23.0
@@ -13,5 +13,5 @@ require (
 require (
 	github.com/fogleman/fauxgl v0.0.0-20180524200717-d89117924388 // indirect
 	github.com/fogleman/simplify v0.0.0-20170216171241-d32f302d5046 // indirect
-	golang.org/x/image v0.35.0 // indirect
+	golang.org/x/image v0.38.0 // indirect
 )
