@@ -68,9 +68,15 @@ func main() {
 	nx := int(size.X / maxSize * float64(*res))
 	ny := int(size.Y / maxSize * float64(*res))
 	nz := int(size.Z / maxSize * float64(*res))
-	if nx < 1 { nx = 1 }
-	if ny < 1 { ny = 1 }
-	if nz < 1 { nz = 1 }
+	if nx < 1 {
+		nx = 1
+	}
+	if ny < 1 {
+		ny = 1
+	}
+	if nz < 1 {
+		nz = 1
+	}
 
 	b := binvox.New(nx, ny, nz, mbb.Min.X, mbb.Min.Y, mbb.Min.Z, maxSize, false)
 	log.Printf("Voxelizing %v at resolution %vx%vx%v...", *input, nx, ny, nz)

@@ -2,8 +2,9 @@
 // is as close to `maxSize` as possible without exceeding it.
 //
 // This program uses:
-//   * [irmf-slicer](https://github.com/gmlewis/irmf-slicer)
-//   * [marching-cubes](https://github.com/gmlewis/stldice/tree/master/cmd/marching-cubes)
+//   - [irmf-slicer](https://github.com/gmlewis/irmf-slicer)
+//   - [marching-cubes](https://github.com/gmlewis/stldice/tree/master/cmd/marching-cubes)
+//
 // to run.
 package main
 

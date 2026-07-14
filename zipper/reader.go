@@ -16,12 +16,12 @@ import (
 
 // Grid manifest structure
 type Grid struct {
-	XMLName      xml.Name `xml:"grid"`
-	GridSizeX    int      `xml:"gridSizeX,attr"`
-	GridSizeY    int      `xml:"gridSizeY,attr"`
-	GridSizeZ    int      `xml:"gridSizeZ,attr"`
-	VoxelSize    float64  `xml:"voxelSize,attr"`
-	Channels     []Channel `xml:"channels>channel"`
+	XMLName   xml.Name  `xml:"grid"`
+	GridSizeX int       `xml:"gridSizeX,attr"`
+	GridSizeY int       `xml:"gridSizeY,attr"`
+	GridSizeZ int       `xml:"gridSizeZ,attr"`
+	VoxelSize float64   `xml:"voxelSize,attr"`
+	Channels  []Channel `xml:"channels>channel"`
 }
 
 type Channel struct {
