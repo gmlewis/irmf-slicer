@@ -1,6 +1,8 @@
 package irmf
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"image"
 	"log"
@@ -58,6 +60,15 @@ func (s *Slicer) NewModel(shaderSrc []byte) error {
 			}
 			s.renderer = &WebGPURenderer{}
 		}
+	case "tsl":
+		if _, ok := s.renderer.(*TSLRenderer); !ok {
+			if s.renderer != nil {
+				s.renderer.Close()
+			}
+			s.renderer = &TSLRenderer{}
+		}
+	default:
+		return fmt.Errorf("unsupported language: %q", irmf.Language)
 	}
 
 	return nil
@@ -65,6 +76,20 @@ func (s *Slicer) NewModel(shaderSrc []byte) error {
 
 func (s *Slicer) IRMF() *IRMF {
 	return s.irmf
+}
+
+// CompileOnly compiles the current model without rendering. GLSL and WGSL are
+// compiled by the GPU, so this is a no-op for them; TSL is compiled eagerly by
+// the external compiler.
+func (s *Slicer) CompileOnly() error {
+	if s.irmf == nil {
+		return errors.New("no model loaded")
+	}
+	if s.irmf.Language != "tsl" {
+		return nil
+	}
+	_, err := activeTSLCompiler().Compile(context.Background(), s.irmf.Shader, len(s.irmf.Materials))
+	return err
 }
 
 // Close closes the renderer and releases any Slicer resources.

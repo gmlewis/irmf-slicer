@@ -7,8 +7,9 @@
 ## Summary
 
 IRMF is a file format used to describe
-[GLSL ES](https://en.wikipedia.org/wiki/OpenGL_ES) or
-[WGSL](https://www.w3.org/TR/WGSL/) shaders that define the
+[GLSL ES](https://en.wikipedia.org/wiki/OpenGL_ES),
+[WGSL](https://www.w3.org/TR/WGSL/), or
+[TSL](https://threejs.org/docs/TSL.html) shaders that define the
 materials in a 3D object with infinite resolution. IRMF
 eliminates the need for [software slicers](https://en.wikipedia.org/wiki/Slicer_(3D_printing)),
 [STL](https://en.wikipedia.org/wiki/STL_(file_format)), and
@@ -18,6 +19,24 @@ eliminates the need for [software slicers](https://en.wikipedia.org/wiki/Slicer_
 I believe that IRMF shaders will some day revolutionize the 3D-printing industry.
 
 See [irmf.io](https://irmf.io) for more details.
+
+## TSL support
+
+TSL models are JavaScript that build a three.js node graph, so the slicer
+cannot evaluate them itself. It invokes the shared
+[`irmf-tsl-compile`](https://github.com/gmlewis/irmf-examples/tree/master/tools/tsl-compiler)
+tool to compile the body into a WGSL function, then reuses the existing WGSL
+renderer.
+
+```sh
+go run ./cmd/irmf-slicer -stl -res 1000 \
+  -tsl-compiler /path/to/irmf-examples/tools/tsl-compiler/src/cli.mjs \
+  examples/001-sphere/sphere-1-tsl.irmf
+```
+
+The compiler is found via `IRMF_TSL_COMPILER` or `irmf-tsl-compile` on `PATH`.
+If it is missing the slicer fails with a clear error rather than treating the
+body as GLSL.
 
 ## LYGIA support
 

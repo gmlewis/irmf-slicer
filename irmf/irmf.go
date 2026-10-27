@@ -30,6 +30,7 @@ type IRMF struct {
 	Notes       string          `json:"notes,omitempty"`
 	Options     json.RawMessage `json:"options,omitempty"`
 	Title       string          `json:"title,omitempty"`
+	TSLVersion  string          `json:"tslVersion,omitempty"`
 	Units       string          `json:"units"`
 	Version     string          `json:"version,omitempty"`
 
@@ -51,6 +52,7 @@ var (
 		"notes",
 		"options",
 		"title",
+		"tslVersion",
 		"units",
 		"version",
 	}
@@ -174,6 +176,17 @@ func (i *IRMF) validate(jsonBlobStr, shaderSrc string) (int, error) {
 			return findKeyLine(jsonBlobStr, "materials"), fmt.Errorf("Found %v materials, but missing 'mainModel9' function", len(i.Materials))
 		}
 
+		if len(i.Materials) > 9 && len(i.Materials) <= 16 && !strings.Contains(shaderSrc, "mainModel16") {
+			return findKeyLine(jsonBlobStr, "materials"), fmt.Errorf("Found %v materials, but missing 'mainModel16' function", len(i.Materials))
+		}
+	case "tsl":
+		// TSL entry points are JavaScript callables named mainModelN.
+		if len(i.Materials) <= 4 && !strings.Contains(shaderSrc, "mainModel4") {
+			return findKeyLine(jsonBlobStr, "materials"), fmt.Errorf("Found %v materials, but missing 'mainModel4' function", len(i.Materials))
+		}
+		if len(i.Materials) > 4 && len(i.Materials) <= 9 && !strings.Contains(shaderSrc, "mainModel9") {
+			return findKeyLine(jsonBlobStr, "materials"), fmt.Errorf("Found %v materials, but missing 'mainModel9' function", len(i.Materials))
+		}
 		if len(i.Materials) > 9 && len(i.Materials) <= 16 && !strings.Contains(shaderSrc, "mainModel16") {
 			return findKeyLine(jsonBlobStr, "materials"), fmt.Errorf("Found %v materials, but missing 'mainModel16' function", len(i.Materials))
 		}

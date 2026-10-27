@@ -34,13 +34,24 @@ var (
 	writeSTL    = flag.Bool("stl", false, "Write stl files, one per material")
 	writeSVX    = flag.Bool("svx", false, "Write slices to svx voxel files, one per material (default resolution is 42 microns)")
 	writeZip    = flag.Bool("zip", false, "Write slices to zip files, one per material (default resolution is X:65,Y:60,Z:30 microns)")
+
+	tslCompiler = flag.String("tsl-compiler", "", "Path to irmf-tsl-compile (default: $IRMF_TSL_COMPILER or PATH)")
+	tslCacheDir = flag.String("tsl-cache-dir", "", "TSL compilation cache directory (default: $IRMF_TSL_CACHE_DIR)")
 )
 
 func main() {
 	flag.Parse()
 
-	if !*writeBinvox && !*writeDLP && !*writeSTL && !*writeSVX && !*writeZip {
-		log.Printf("-binvox, -dlp, -stl, -svx, or -zip must be supplied to generate output. Testing IRMF shader compilation only.")
+	if *tslCompiler != "" {
+		os.Setenv("IRMF_TSL_COMPILER", *tslCompiler)
+	}
+	if *tslCacheDir != "" {
+		os.Setenv("IRMF_TSL_CACHE_DIR", *tslCacheDir)
+	}
+
+	compileOnly := !*writeBinvox && !*writeDLP && !*writeSTL && !*writeSVX && !*writeZip
+	if compileOnly {
+		log.Printf("-binvox, -dlp, -stl, -svx, or -zip not supplied: compiling and validating only.")
 	}
 
 	var xRes, yRes, zRes float32
@@ -73,6 +84,11 @@ func main() {
 		check("%v: %v", arg, err)
 
 		baseName := strings.TrimSuffix(arg, ".irmf")
+
+		if compileOnly {
+			check("%v: %v", arg, slicer.CompileOnly())
+			log.Printf("Compiled and validated %q.", arg)
+		}
 
 		if *writeBinvox {
 			log.Printf("Slicing %v materials into separate binvox files (%v slices each)...", slicer.NumMaterials(), slicer.NumZSlices())
