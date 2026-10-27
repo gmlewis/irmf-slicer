@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"image"
 	"log"
-	"strings"
 
 	"github.com/gmlewis/irmf-slicer/v3/irmf"
 	"github.com/gmlewis/stldice/v4/binvox"
@@ -28,7 +27,7 @@ type Slicer interface {
 // Slice slices an IRMF model into one or more binvox files (one per material).
 func Slice(baseFilename string, slicer Slicer) error {
 	for materialNum := 1; materialNum <= slicer.NumMaterials(); materialNum++ {
-		materialName := strings.ReplaceAll(slicer.MaterialName(materialNum), " ", "-")
+		materialName := irmf.SafeMaterialName(slicer.MaterialName(materialNum))
 
 		filename := fmt.Sprintf("%v-mat%02d-%v.binvox", baseFilename, materialNum, materialName)
 

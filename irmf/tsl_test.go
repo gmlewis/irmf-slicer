@@ -70,7 +70,7 @@ x
 }
 
 func TestSlicerSelectsTSLRenderer(t *testing.T) {
-	s := Init(false, 1, 1, 1)
+	s := Init(false, 10, 10, 10) // renderer selection only; keep the slice count sane
 	defer s.Close()
 	if err := s.NewModel(tslSource(t, "const mainModel4 = (xyz) => [float(1)];\n")); err != nil {
 		t.Fatalf("NewModel: %v", err)

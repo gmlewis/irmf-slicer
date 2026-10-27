@@ -13,7 +13,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"strings"
 
 	"github.com/gmlewis/irmf-slicer/v3/irmf"
 )
@@ -34,7 +33,7 @@ type Slicer interface {
 // containing many voxel slices as PNG images (one file per material).
 func Slice(baseFilename string, xRes, yRes, zRes float32, slicer Slicer) error {
 	for materialNum := 1; materialNum <= slicer.NumMaterials(); materialNum++ {
-		materialName := strings.ReplaceAll(slicer.MaterialName(materialNum), " ", "-")
+		materialName := irmf.SafeMaterialName(slicer.MaterialName(materialNum))
 
 		dlpName := fmt.Sprintf("%v-mat%02d-%v.cbddlp", baseFilename, materialNum, materialName)
 

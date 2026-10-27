@@ -9,7 +9,6 @@ import (
 	"image/png"
 	"log"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/gmlewis/irmf-slicer/v3/irmf"
@@ -39,7 +38,7 @@ func Slice(baseFilename string, slicer Slicer) error {
 
 func processMaterials(baseFilename string, slicer Slicer, baseZipper *zipper) error {
 	for materialNum := 1; materialNum <= slicer.NumMaterials(); materialNum++ {
-		materialName := strings.ReplaceAll(slicer.MaterialName(materialNum), " ", "-")
+		materialName := irmf.SafeMaterialName(slicer.MaterialName(materialNum))
 
 		zipName := fmt.Sprintf("%v-mat%02d-%v.%v", baseFilename, materialNum, materialName, baseZipper.suffix)
 

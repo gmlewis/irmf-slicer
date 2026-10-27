@@ -37,6 +37,9 @@ var (
 
 	tslCompiler = flag.String("tsl-compiler", "", "Path to irmf-tsl-compile (default: $IRMF_TSL_COMPILER or PATH)")
 	tslCacheDir = flag.String("tsl-cache-dir", "", "TSL compilation cache directory (default: $IRMF_TSL_CACHE_DIR)")
+
+	remoteIncludes = flag.Bool("remote-includes", false,
+		"Allow #include directives to fetch shader code from lygia.xyz or raw.githubusercontent.com (executes remote code; only use with trusted models)")
 )
 
 func main() {
@@ -68,6 +71,7 @@ func main() {
 	log.Printf("Resolution in microns: X: %v, Y: %v, Z: %v", xRes, yRes, zRes)
 
 	slicer := irmf.Init(*view, xRes, yRes, zRes)
+	slicer.SetRemoteIncludes(*remoteIncludes)
 	defer slicer.Close()
 
 	for _, arg := range flag.Args() {

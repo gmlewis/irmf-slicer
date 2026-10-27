@@ -26,6 +26,10 @@ type Slicer struct {
 	deltaZ float32
 	view   bool
 
+	// allowRemoteIncludes permits #include URLs to be fetched while parsing.
+	// Off by default; see SetRemoteIncludes.
+	allowRemoteIncludes bool
+
 	renderer Renderer
 }
 
@@ -35,10 +39,53 @@ func Init(view bool, umXRes, umYRes, umZRes float32) *Slicer {
 	return &Slicer{deltaX: umXRes / 1000.0, deltaY: umYRes / 1000.0, deltaZ: umZRes / 1000.0, view: view}
 }
 
+// SetRemoteIncludes controls whether #include directives may be fetched from
+// the network while parsing models. It is disabled by default because remote
+// includes are executable code fetched at load time. Enable it only for models
+// you trust.
+func (s *Slicer) SetRemoteIncludes(allow bool) {
+	s.allowRemoteIncludes = allow
+}
+
+// validateDimensions rejects models whose slice counts would exhaust time or
+// memory. Bounds come from the untrusted header, so they must be bounded
+// independently of the resolution chosen by the user.
+func (s *Slicer) validateDimensions(irmf *IRMF) error {
+	if s.deltaX <= 0 || s.deltaY <= 0 || s.deltaZ <= 0 {
+		return errors.New("resolution must be positive")
+	}
+	extents := [3]float64{
+		float64(irmf.Max[0] - irmf.Min[0]),
+		float64(irmf.Max[1] - irmf.Min[1]),
+		float64(irmf.Max[2] - irmf.Min[2]),
+	}
+	deltas := [3]float64{float64(s.deltaX), float64(s.deltaY), float64(s.deltaZ)}
+	var counts [3]int64
+	for axis := 0; axis < 3; axis++ {
+		n := int64(0.5 + extents[axis]/deltas[axis])
+		if n < 1 {
+			return fmt.Errorf("model is thinner than one voxel on axis %d", axis)
+		}
+		if n > maxSlices {
+			return fmt.Errorf("model requires %d slices on axis %d (limit is %d)", n, axis, maxSlices)
+		}
+		counts[axis] = n
+	}
+	if pixels := counts[0] * counts[1]; pixels > maxSlicePixels {
+		return fmt.Errorf("model requires %d samples per slice (limit is %d)", pixels, maxSlicePixels)
+	}
+	return nil
+}
+
 // NewModel prepares the slicer to slice a new shader model.
 func (s *Slicer) NewModel(shaderSrc []byte) error {
-	irmf, err := newModel(shaderSrc)
+	irmf, err := newModelWithOptions(shaderSrc, modelOptions{
+		AllowRemoteIncludes: s.allowRemoteIncludes,
+	})
 	if err != nil {
+		return err
+	}
+	if err := s.validateDimensions(irmf); err != nil {
 		return err
 	}
 	s.irmf = irmf

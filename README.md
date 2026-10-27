@@ -51,6 +51,20 @@ This means that you can add lines to your IRMF shaders like this:
 
 and the source will be retrieved from the LYGIA server.
 
+Remote includes are **disabled by default** because they fetch executable
+shader code at load time. Pass `-remote-includes` to enable them, and only do
+so for models you trust:
+
+```sh
+irmf-slicer -stl -remote-includes model.irmf
+```
+
+Even when enabled, only `lygia.xyz` and `raw.githubusercontent.com` are
+allowed over HTTPS, redirects are restricted to those hosts, and the number
+and total size of includes are capped. `#include` is never expanded in TSL
+bodies: a TSL body is JavaScript, so a remote include would be remote code
+execution. Inline the code instead.
+
 Congratulations and thanks go to [Patricio Gonzalez Vivo](https://github.com/sponsors/patriciogonzalezvivo)
 for making the LYGIA server available for anyone to use, and also
 for the amazing tool [glslViewer](https://github.com/patriciogonzalezvivo/glslViewer)!
