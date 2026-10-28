@@ -40,6 +40,9 @@ var (
 
 	remoteIncludes = flag.Bool("remote-includes", false,
 		"Allow #include directives to fetch shader code from lygia.xyz or raw.githubusercontent.com (executes remote code; only use with trusted models)")
+
+	allowMutableIncludes = flag.Bool("allow-mutable-includes", false,
+		"Allow GitHub includes that name a branch or tag instead of a commit (requires --remote-includes; less reproducible)")
 )
 
 func main() {
@@ -70,8 +73,16 @@ func main() {
 	}
 	log.Printf("Resolution in microns: X: %v, Y: %v, Z: %v", xRes, yRes, zRes)
 
+	if *allowMutableIncludes && !*remoteIncludes {
+		log.Fatal("-allow-mutable-includes requires -remote-includes")
+	}
+	if *allowMutableIncludes {
+		log.Printf("WARNING: -allow-mutable-includes accepts branch/tag includes, which can change after review.")
+	}
+
 	slicer := irmf.Init(*view, xRes, yRes, zRes)
 	slicer.SetRemoteIncludes(*remoteIncludes)
+	slicer.SetAllowMutableIncludes(*allowMutableIncludes)
 	defer slicer.Close()
 
 	for _, arg := range flag.Args() {

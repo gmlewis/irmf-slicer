@@ -104,7 +104,7 @@ func TestParseIncludeURLRequiresGitHubCommit(t *testing.T) {
 	if got := parseIncludeURL(unpinned); got != "" {
 		t.Errorf("parseIncludeURL(unpinned) = %q, want rejection", got)
 	}
-	if _, err := processIncludes(unpinned + "\n"); err == nil || !strings.Contains(err.Error(), "unpinned") {
+	if _, err := processIncludes(unpinned+"\n", false); err == nil || !strings.Contains(err.Error(), "unpinned") {
 		t.Errorf("processIncludes(unpinned) err = %v, want an unpinned error", err)
 	}
 
@@ -112,6 +112,20 @@ func TestParseIncludeURLRequiresGitHubCommit(t *testing.T) {
 	want := "https://raw.githubusercontent.com/gmlewis/irmf-examples/" + sha + "/examples/x.glsl"
 	if got := parseIncludeURL(pinned); got != want {
 		t.Errorf("parseIncludeURL(pinned) = %q, want %q", got, want)
+	}
+
+	// An explicit operator opt-in may accept a branch or tag.
+	mutableWant := "https://raw.githubusercontent.com/gmlewis/irmf-examples/master/examples/x.glsl"
+	if got := parseIncludeURLWithOptions(unpinned, true); got != mutableWant {
+		t.Errorf("parseIncludeURLWithOptions(mutable, true) = %q, want %q", got, mutableWant)
+	}
+	if got := parseIncludeURLWithOptions(
+		`#include "github.com/o/r/blob/master/../../etc/passwd.glsl"`, true); got != "" {
+		t.Errorf("parseIncludeURLWithOptions(traversal) = %q, want rejection", got)
+	}
+	if got := parseIncludeURLWithOptions(
+		`#include "github.com/o/r/blob/master/x.glsl?raw=1"`, true); got != "" {
+		t.Errorf("parseIncludeURLWithOptions(query) = %q, want rejection", got)
 	}
 }
 

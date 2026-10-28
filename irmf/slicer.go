@@ -29,6 +29,9 @@ type Slicer struct {
 	// allowRemoteIncludes permits #include URLs to be fetched while parsing.
 	// Off by default; see SetRemoteIncludes.
 	allowRemoteIncludes bool
+	// allowMutableIncludes permits branch/tag GitHub includes. Off by default;
+	// see SetAllowMutableIncludes.
+	allowMutableIncludes bool
 
 	renderer Renderer
 }
@@ -45,6 +48,13 @@ func Init(view bool, umXRes, umYRes, umZRes float32) *Slicer {
 // you trust.
 func (s *Slicer) SetRemoteIncludes(allow bool) {
 	s.allowRemoteIncludes = allow
+}
+
+// SetAllowMutableIncludes controls whether GitHub includes may name a branch
+// or tag instead of a commit. It requires SetRemoteIncludes(true), weakens
+// reproducibility, and should only be enabled by an explicit operator choice.
+func (s *Slicer) SetAllowMutableIncludes(allow bool) {
+	s.allowMutableIncludes = allow
 }
 
 // validateDimensions rejects models whose slice counts would exhaust time or
@@ -80,7 +90,8 @@ func (s *Slicer) validateDimensions(irmf *IRMF) error {
 // NewModel prepares the slicer to slice a new shader model.
 func (s *Slicer) NewModel(shaderSrc []byte) error {
 	irmf, err := newModelWithOptions(shaderSrc, modelOptions{
-		AllowRemoteIncludes: s.allowRemoteIncludes,
+		AllowRemoteIncludes:  s.allowRemoteIncludes,
+		AllowMutableIncludes: s.allowMutableIncludes,
 	})
 	if err != nil {
 		return err

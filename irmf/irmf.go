@@ -38,6 +38,11 @@ type modelOptions struct {
 	// raw.githubusercontent.com. It is off by default: remote includes are
 	// fetched code and can change a model without changing the file.
 	AllowRemoteIncludes bool
+	// AllowMutableIncludes permits GitHub includes that name a branch or tag
+	// instead of a 40-hex commit. This weakens reproducibility: the code can
+	// change after the model was reviewed. It is off by default and only has
+	// an effect when AllowRemoteIncludes is also set.
+	AllowMutableIncludes bool
 }
 
 // IRMF represents an IRMF shader.
@@ -157,7 +162,7 @@ func newModelWithOptions(src []byte, opts modelOptions) (*IRMF, error) {
 			// straight into executable code.
 			return nil, errors.New("TSL bodies must not contain #include; inline the included code")
 		case opts.AllowRemoteIncludes:
-			shader, err := processIncludes(jsonBlob.Shader)
+			shader, err := processIncludes(jsonBlob.Shader, opts.AllowMutableIncludes)
 			if err != nil {
 				return nil, err
 			}
@@ -360,6 +365,9 @@ var (
 	// change the code a model executes without changing the model file.
 	githubIncludeRE = regexp.MustCompile(
 		`^github\.com/([^/]+)/([^/]+)/(?:(?:blob|raw)/)?([0-9a-fA-F]{40})/(.+)$`)
+	// Only used when the caller explicitly allows mutable includes.
+	githubMutableIncludeRE = regexp.MustCompile(
+		`^github\.com/([^/]+)/([^/]+)/(?:blob|raw)/([^/]+)/(.+)$`)
 )
 
 const (
@@ -420,7 +428,16 @@ func hasIncludeDirective(src string) bool {
 	return false
 }
 
+// parseIncludeURL resolves an #include line, requiring a pinned commit for
+// GitHub URLs.
 func parseIncludeURL(trimmed string) string {
+	return parseIncludeURLWithOptions(trimmed, false)
+}
+
+// parseIncludeURLWithOptions resolves an #include line. When allowMutable is
+// true, GitHub blob/raw URLs that name a branch or tag are also accepted. That
+// is less reproducible and must only be enabled explicitly by the operator.
+func parseIncludeURLWithOptions(trimmed string, allowMutable bool) string {
 	m := includeRE.FindStringSubmatch(trimmed)
 	if len(m) < 2 {
 		return ""
@@ -437,14 +454,41 @@ func parseIncludeURL(trimmed string) string {
 	case strings.HasPrefix(inc, prefix2):
 		return fmt.Sprintf("%v/%v", lygiaBaseURL, inc[len(prefix2):])
 	case strings.HasPrefix(inc, prefix3):
-		m := githubIncludeRE.FindStringSubmatch(inc)
-		if m == nil {
+		if m := githubIncludeRE.FindStringSubmatch(inc); m != nil {
+			if !safeIncludeRefAndPath(m[3], m[4]) {
+				return ""
+			}
+			return fmt.Sprintf("%v%v/%v/%v/%v", githubRawPrefix, m[1], m[2], m[3], m[4])
+		}
+		if !allowMutable {
+			return ""
+		}
+		m := githubMutableIncludeRE.FindStringSubmatch(inc)
+		if m == nil || !safeIncludeRefAndPath(m[3], m[4]) {
 			return ""
 		}
 		return fmt.Sprintf("%v%v/%v/%v/%v", githubRawPrefix, m[1], m[2], m[3], m[4])
 	default:
 		return ""
 	}
+}
+
+// safeIncludeRefAndPath rejects branch names and paths that would change the
+// meaning of the constructed URL or traverse the fetched path.
+func safeIncludeRefAndPath(ref, path string) bool {
+	if ref == "" || ref == "." || ref == ".." ||
+		strings.Contains(ref, "..") || strings.ContainsAny(ref, `\?#%`) {
+		return false
+	}
+	if strings.ContainsAny(path, `\?#%`) || strings.ContainsAny(path, "\x00\r\n") {
+		return false
+	}
+	for _, part := range strings.Split(path, "/") {
+		if part == "." || part == ".." {
+			return false
+		}
+	}
+	return true
 }
 
 // processIncludes converts "#include" lines (with recognized prefixes)
@@ -457,20 +501,26 @@ func parseIncludeURL(trimmed string) string {
 // Note that multiline comments ("/*" and "*/") are currently not supported.
 // It is recommended that an ignored "#include" statement should be commented-out
 // with single-line comments ("//...").
-func processIncludes(source string) (string, error) {
+func processIncludes(source string, allowMutable bool) (string, error) {
 	lines := strings.Split(source, "\n")
 	var result []string
 	includeCount := 0
 	var totalBytes int64
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
-		url := parseIncludeURL(trimmed)
+		url := parseIncludeURLWithOptions(trimmed, allowMutable)
 		if url == "" {
 			if strings.HasPrefix(trimmed, "#include") {
-				return "", fmt.Errorf("unsupported or unpinned #include: %v", trimmed)
+				if allowMutable {
+					return "", fmt.Errorf("unsupported #include: %v", trimmed)
+				}
+				return "", fmt.Errorf("unsupported or unpinned #include: %v (pass --allow-mutable-includes to accept a branch or tag)", trimmed)
 			}
 			result = append(result, line)
 			continue
+		}
+		if allowMutable && parseIncludeURL(trimmed) == "" {
+			log.Printf("WARNING: fetching mutable include: %q", url)
 		}
 
 		if includeCount >= maxIncludes {

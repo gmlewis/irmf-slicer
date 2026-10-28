@@ -61,9 +61,25 @@ irmf-slicer -stl -remote-includes model.irmf
 
 Even when enabled, only `lygia.xyz` and `raw.githubusercontent.com` are
 allowed over HTTPS, redirects are restricted to those hosts, and the number
-and total size of includes are capped. `#include` is never expanded in TSL
-bodies: a TSL body is JavaScript, so a remote include would be remote code
-execution. Inline the code instead.
+and total size of includes are capped. GitHub includes must name a 40-hex
+commit, so that a reviewed model keeps executing the same code. `#include` is
+never expanded in TSL bodies: a TSL body is JavaScript, so a remote include
+would be remote code execution. Inline the code instead.
+
+If you accept the risk that the include can change after review, you can allow
+branch and tag URLs explicitly:
+
+```sh
+irmf-slicer -stl -remote-includes -allow-mutable-includes model.irmf
+```
+
+The slicer warns about each mutable include it fetches. To remove the risk
+instead, pin the include to the current commit with
+[`irmf-pin-includes`](https://github.com/gmlewis/irmf-examples/tree/master/tools/pin-includes):
+
+```sh
+node ~/src/github.com/gmlewis/irmf-examples/tools/pin-includes/src/cli.mjs --write model.irmf
+```
 
 Congratulations and thanks go to [Patricio Gonzalez Vivo](https://github.com/sponsors/patriciogonzalezvivo)
 for making the LYGIA server available for anyone to use, and also
